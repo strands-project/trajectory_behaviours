@@ -1,0 +1,8 @@
+# goal definition
+string request # update, accuracy, online
+---
+# result definition
+bool updated
+float64 accuracy
+---
+# feedback definition
