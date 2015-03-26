@@ -36,41 +36,40 @@ class NoveltyClient(object):
 class NoveltyScoreLogic(object):
     def __init__(self):
         self.spatial_scores = {}
-    
-    def add(self, uuid, spatial_dist):
-        self.spatial_scores[uuid] = spatial_dist
+        self.temp_scores = {}
+        self.published_uuids = []
 
 
-    def mean(self):
-        """Return the sample arithmetic mean of data."""
-        n = len(self.spatial_scores.values())
-        if n < 1:
-            raise ValueError('mean requires at least one data point')
-        return sum(self.spatial_scores.values())/float(n)
+    def test(self, uuid, ret):
+        """Tests whether UUID is a novel trajectory"""
+        self.uuid = uuid         
+        spatial_novelty = ret.spatial_dist
+        temp1 = ret.temporal_nov[0]
+        temp2 = ret.temporal_nov[1]
 
-    def _ss(self):
-        """Return sum of square deviations of sequence data."""
-        c = self.mean()
-        ss = sum((x-c)**2 for x in self.spatial_scores.values())
-        return ss
+        if spatial_novelty > 0: self.msg = "  >>> spatial novelty %s" % spatial_novelty
+        elif ret.roi_knowledge > 0.5:
+            if temp1 < 0.05: self.msg = "  >>> temporal novelty1"
+            if temp2 < 0.05: self.msg = "  >>> temporal novelty2"
+            self.msg=""
+        else: self.msg = ""
 
-    def pstdev(self):
-        """Calculates the population standard deviation."""
-        n = len(self.spatial_scores.values())
-        if n < 2:
-            raise ValueError('variance requires at least two data points')
-        ss = self._ss()
-        pvar = ss/n # the population variance
-        return pvar**0.5
+        if self.msg!="":
+            self.published_uuids.append(uuid)
+            return True
+        else: return False
+
 
 if __name__ == "__main__":
     rospy.init_node('novelty_client')
 
-    nsl = NoveltyScoreLogic()
+    novlogic = NoveltyScoreLogic()
     nc = NoveltyClient()
 
     ### Query all ROI 12 to test (or just one dude) ###
     #query = '''{"uuid": "328e2f8c-6147-5525-93c4-1b281887623b"}''' 
+    ###geoIntersects? - Fix
+
     query ='''{"loc": { "$geoWithin": { "$geometry":
         { "type" : "Polygon", "coordinates" : [ [ 
                     [ -0.0002246355582968818, 
@@ -86,27 +85,28 @@ if __name__ == "__main__":
                     ] ] }}}}'''
 
 
-
-
     q = ot.query_trajectories(query)
 
-    test = [q.res.trajectories.trajectories[0]]#, q.res.trajectories.trajectories[0]]
-    
-    #for i in q.res.trajectories.trajectories:
-    for i in test:
+    #test_list= [q.res.trajectories.trajectories[0],q.res.trajectories.trajectories[1],\
+    #    q.res.trajectories.trajectories[1], q.res.trajectories.trajectories[2], \
+    #    q.res.trajectories.trajectories[2], q.res.trajectories.trajectories[2],\
+    #    q.res.trajectories.trajectories[0], q.res.trajectories.trajectories[0]]
+
+    for cnt, i in enumerate(q.res.trajectories.trajectories):
+        if i.uuid in novlogic.published_uuids: continue
+        print "\n",cnt, i.uuid
+
         ret = nc.novelty_client(i)
         print ret
-        nsl.add(i.uuid, ret.spatial_dist)
-        print nsl.spatial_scores
 
-        values = nsl.spatial_scores.values()
-        nc.pub.publish(i.uuid)
-  
-        print "mean of collection: ", nsl.mean()
-        print "sum of square deviations: ", nsl._ss()
-        if len(values)>1: print "population std dev: ",  nsl.pstdev()
-        #rospy.sleep(2)
-    
+        if novlogic.test(i.uuid, ret): 
+            nc.pub.publish(i.uuid)
+        print novlogic.msg
+
+        rospy.sleep(1) 
+
+    print novlogic.published_uuids
+
 
 
     #rospy.spin()

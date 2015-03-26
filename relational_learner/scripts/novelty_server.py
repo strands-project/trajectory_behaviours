@@ -119,7 +119,7 @@ def handle_novelty_detection(req):
     #    print tr[i].qsrs['Printer (photocopier)_5,trajectory'].qsr
     #print tr
 
-    """3.5 Check the uuid is new"""
+    """3.5 Check the uuid is new (or stitch QSRs together)"""
     stitching.merge_qsr_worlds(uuid, qsr_reader)
 
     """4. Episodes"""
@@ -140,7 +140,7 @@ def handle_novelty_detection(req):
 
     activity_graphs = gh.generate_graph_data(ep.all_episodes, data_dir, \
             params, tag, test=True)
-    print "\n  ACTIVITY GRAPH: \n", activity_graphs[episodes_file].graph 
+    #print "\n  ACTIVITY GRAPH: \n", activity_graphs[episodes_file].graph 
 
 
     """5. Load spatial model"""
@@ -157,15 +157,33 @@ def handle_novelty_detection(req):
     
     """7. Calculate Distance to clusters"""
     estimator = smartThing.methods['kmeans']
+    closest_cluster = estimator.predict(test_histogram)
+    
     print "INERTIA = ", estimator.inertia_
     print "CLUSTER CENTERS = ", estimator.cluster_centers_
-    
-    closest_cluster = estimator.predict(test_histogram)
-    a = test_histogram   
+
+    a = test_histogram
     b = estimator.cluster_centers_[closest_cluster]
     dst = distance.euclidean(a,b)
     print "\nDISTANCE = ", dst
- 
+
+    mean = estimator.cluster_dist_means[closest_cluster[0]]
+    std = estimator.cluster_dist_std[closest_cluster[0]]
+    print "Mean & std = ",  mean, std
+
+    if dst > mean+std:
+        print ">>> NOVEL1\n"
+        dst=1.0
+    elif dst > mean + 2*std:
+        print ">>> NOVEL2\n"
+        dst=2.0
+    elif  dst > mean + 3*std:
+        print ">>> NOVEL3\n"
+        dst=3.0
+    else:
+        print ">>> not novel\n"
+        dst=0.0
+
 
     """8. Time Analysis"""
     fitting = smartThing.methods['time_fitting']
