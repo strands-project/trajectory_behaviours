@@ -108,9 +108,14 @@ def handle_novelty_detection(req):
     print "\n  ROI: ", roi
     print "\n  Objects: ", objects
 
+    """2.5 Get the closest objects to the trajectory"""
+    closest_objs_to_trajs = ot.trajectory_object_dist(objects, trajectory_poses)
+
+
     """3. QSRLib data parser"""
     qsr_reader = tdr.Trajectory_Data_Reader(objects=objects, \
                                         trajectories=trajectory_poses, \
+                                        objs_to_traj_map = closest_objs_to_trajs, \
                                         config_filename=config_path, \
                                         roi=roi)
 
