@@ -33,7 +33,7 @@ def AG_setup(input_data, date, roi):
 
 def generate_graph_data(episodes, data_dir, params, tag,
                          __out=False, test=False):
-
+    t0 = time.time()
     cnt=0
     activity_graphs = {}
 
@@ -57,7 +57,8 @@ def generate_graph_data(episodes, data_dir, params, tag,
     else:
         AG_out_file = os.path.join(data_dir + 'activity_graphs_' + tag + '.p')
         pickle.dump(activity_graphs, open(AG_out_file,'w')) 
-        rospy.loginfo('4. Activity Graph Data Generated and saved to:\n' + AG_out_file) 
+        rospy.loginfo('4. Activity Graph Data Generated and saved to:\n' + AG_out_file)
+    print "Done. Took %f seconds." % (time.time()-t0)
     return
 
 
@@ -78,7 +79,7 @@ def graph_check(gr, ep_file):
 
 
 def generate_feature_space(data_dir, tag, __out=False):
-    
+    t0 = time.time()
     AG_out_file = os.path.join(data_dir + 'activity_graphs_' + tag + '.p')
     activity_graphs = pickle.load(open(AG_out_file))
     
@@ -128,7 +129,7 @@ def generate_feature_space(data_dir, tag, __out=False):
     feature_space_out_file = os.path.join(data_dir + 'feature_space_' + tag + '.p')
     pickle.dump(feature_space, open(feature_space_out_file, 'w'))
     print "\nall graph and histogram data written to: \n" + repr(data_dir) 
-    
+    print "Done. Took %f seconds." % (time.time()-t0)
     rospy.loginfo('Done')
     return feature_space
 
