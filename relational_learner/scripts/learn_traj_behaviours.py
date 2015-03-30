@@ -98,9 +98,9 @@ def run_all():
     for roi in gs.roi_ids(soma_map, soma_config):
 
         str_roi = "roi_%s" % roi
-        if roi != '12': continue
+        #if roi != '12': continue
 
-        if __out: print 'ROI: ', gs.type_of_roi(roi, soma_map, soma_config), roi
+        print 'ROI: ', gs.type_of_roi(roi, soma_map, soma_config), roi
 
         objects = two_proxies.roi_objects(roi)
         if objects == None: continue
@@ -111,7 +111,6 @@ def run_all():
 	
         query = '''{"loc": { "$geoWithin": { "$geometry": 
         { "type" : "Polygon", "coordinates" : %s }}}}''' %geom['coordinates']
-        if __out: print query
         #query = '''{"loc": { "$geoIntersects": { "$geometry": 
         #{ "type" : "Polygon", "coordinates" : %s }}}}''' %geom['coordinates']
         q = ot.query_trajectories(query)
@@ -122,8 +121,8 @@ def run_all():
             continue
         else:
             print " number of unique traj returned = " + repr(len(q.trajs))
+        closest_objs_to_trajs = ot.trajectory_object_dist(objects, q.trajs)
 
-        #objects_per_trajectory = ot.trajectory_object_dist(objects, trajectory_poses)
 
         #LandMarks instead of Objects - need to select per ROI:
         #all_poses = list(itertools.chain.from_iterable(trajectory_poses.trajs.values()))
@@ -146,16 +145,32 @@ def run_all():
         rospy.loginfo('2. Apply QSR Lib')
         if __out: raw_input("Press enter to continue")
 
-        reader = Trajectory_Data_Reader(config_filename = config_path, roi=str_roi)
-        keeper = Trajectory_QSR_Keeper(objects=objects, 
-                            trajectories=q.trajs, reader=reader)
-        keeper.save(base_data_dir)
+        qsr_reader = Trajectory_Data_Reader(objects=objects, \
+                                trajectories=q.trajs, \
+                                objs_to_traj_map = closest_objs_to_trajs, \
+                                config_filename=config_path, \
+                                roi=str(roi))
+
+        #To Debug:
+        #uuid = qsr_reader.spatial_relations.keys()[0] 
+        #tr = qsr_reader.spatial_relations[uuid].trace
+        #dic = {}
+        #for timepoint in tr:
+        #    for obj_pair in tr[timepoint].qsrs:
+        #        if obj_pair in dic:
+        #            dic[obj_pair].append(tr[timepoint].qsrs[obj_pair].qsr)
+        #        else: dic[obj_pair] = [ tr[timepoint].qsrs[obj_pair].qsr ]
+        #            
+        #for objs in dic:
+        #    print objs, dic[objs], "/n"
+        
+        qsr_reader.save(base_data_dir)
+
         #load_qsrs = 'roi_12_qsrs_qtcb__0_01__False__True__03_03_2015.p'
         #keeper= Trajectory_QSR_Keeper(reader=reader, load_from_file = load_qsrs, dir=base_data_dir) 
 
         #print keeper.reader.spatial_relations['7d638405-b2f8-55ce-b593-efa8e3f2ff2e'].trace[1].qsrs['Printer (photocopier)_5,trajectory'].qsr
 
-    
     #**************************************************************#
     #             Generate Episodes from QSR Data                  #
     #**************************************************************#
@@ -164,17 +179,17 @@ def run_all():
         rospy.loginfo('3. Generating Episodes')
         if __out: raw_input("Press enter to continue")
 
-        ep = Episodes(reader=keeper.reader)
-        ep.get_episodes(noise_thres=3, out=__out)
+        ep = Episodes(reader=qsr_reader, noise=3)
+        key = ep.all_episodes.keys()[0]
+        if __out: print(ep.all_episodes[key])
         ep.save(base_data_dir)
-        if __out: print "episode test: " + repr(ep.all_episodes['5c02e156-493d-55bc-ad21-a4be1d9f95aa__1__22'])
 
 
     #**************************************************************#
     #            Activity Graphs/Code_book/Histograms              #
     #**************************************************************#
     #Dependant on Episodes
-        __out = False
+
         rospy.loginfo('4. Generating Activity Graphs')
         if __out: raw_input("Press enter to continue")
 
@@ -233,6 +248,7 @@ def run_all():
   
         roi_cnt+=1
 
+    print "COMPLETED LEARNING PHASE"
     return
 
 

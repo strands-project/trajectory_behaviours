@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
+from scipy.spatial import distance
 from sklearn import metrics
 from sklearn.cluster import KMeans
 from sklearn.datasets import load_digits
@@ -102,11 +103,44 @@ class Learning():
                     best_k = k
             k = best_k
             print "k = %d has minimum inertia*penalty" %k
-            
+        
+        estimator = self.kmeans_cluster_radius(data, estimator)
+        
         self.methods["kmeans"] = estimator
         if self.visualise: plot_pca(data, k)
         rospy.loginfo('6. Done')
 
+
+    def kmeans_cluster_radius(self, data, estimator):
+        n_samples, n_features = data.shape
+        print "INERTIA = ", estimator.inertia_
+        #print "CLUSTER CENTERS = ", estimator.cluster_centers_
+        print "LABELS = ", estimator.labels_
+    
+        cluster_radius = {}
+        for i, sample in enumerate(data):
+            #print "Sample = ", i
+            label = estimator.labels_[i]
+            clst = estimator.cluster_centers_[label]
+            dst = distance.euclidean(sample,clst)
+
+            if label not in cluster_radius:
+                cluster_radius[label] = [dst]
+            else:
+                cluster_radius[label].append(dst)
+
+        means, std = {}, {}
+        for label in cluster_radius:
+            means[label] = np.mean(cluster_radius[label])
+            std[label] = np.std(cluster_radius[label])
+        print means
+        print std
+        
+        estimator.cluster_dist_means = means
+        estimator.cluster_dist_std = std
+
+        print estimator.cluster_dist_means
+        return estimator
 
     def kmeans_util(self, data, k=None):
         n_samples, n_features = data.shape
@@ -129,6 +163,8 @@ class Learning():
                       name="PCA-based", data=data, k=k)
         if  self.visualise: print(40 * '-')
         return (estimator, pen)
+
+
 
 
     def bench_k_means(self, estimator, name, data, k):
@@ -233,7 +269,7 @@ class Learning():
         cl = ['r', 'g', 'b', 'y']
         regions=[]
         for (roi, k) in self.roi_temp_know.items():
-            print k
+            #print k
             regions.append(roi)
             cls = [cl[z%4]]*n_bins
             ax.bar(range(n_bins),k, zs=z, zdir='y', color=cls, alpha = 0.8)

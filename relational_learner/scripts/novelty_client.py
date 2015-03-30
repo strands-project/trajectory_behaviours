@@ -15,7 +15,7 @@ class NoveltyClient(object):
         self.ret = None
         self.uuid = ''
         self.pose = None
-
+        
         self.pub = rospy.Publisher("/trajectory_behaviours/novel_trajectory", String, queue_size=10)
         rospy.Subscriber("/human_trajectories/trajectories/batch", Trajectories, self.callback)
 
@@ -36,55 +36,46 @@ class NoveltyClient(object):
 class NoveltyScoreLogic(object):
     def __init__(self):
         self.spatial_scores = {}
-    
-    def add(self, uuid, spatial_dist):
-        self.spatial_scores[uuid] = spatial_dist
+        self.temp_scores = {}
+        self.published_uuids = []
 
 
-    def mean(self):
-        """Return the sample arithmetic mean of data."""
-        n = len(self.spatial_scores.values())
-        if n < 1:
-            raise ValueError('mean requires at least one data point')
-        return sum(self.spatial_scores.values())/float(n)
+    def test(self, uuid, ret):
+        """Tests whether UUID is a novel trajectory"""
+        self.uuid = uuid         
+        spatial_novelty = ret.spatial_dist
+        temp1 = ret.temporal_nov[0]
+        temp2 = ret.temporal_nov[1]
 
-    def _ss(self):
-        """Return sum of square deviations of sequence data."""
-        c = self.mean()
-        ss = sum((x-c)**2 for x in self.spatial_scores.values())
-        return ss
+        if spatial_novelty > 0: self.msg = "  >>> spatial novelty %s" % spatial_novelty
+        elif ret.roi_knowledge > 0.5:
+            if temp1 < 0.05: self.msg = "  >>> temporal novelty1"
+            if temp2 < 0.05: self.msg = "  >>> temporal novelty2"
+            self.msg=""
+        else: self.msg = ""
 
-    def pstdev(self):
-        """Calculates the population standard deviation."""
-        n = len(self.spatial_scores.values())
-        if n < 2:
-            raise ValueError('variance requires at least two data points')
-        ss = self._ss()
-        pvar = ss/n # the population variance
-        return pvar**0.5
+        if self.msg!="":
+            self.published_uuids.append(uuid)
+            return True
+        else: return False
+
     
 if __name__ == "__main__":
     rospy.init_node('novelty_client')
     
-    nsl = NoveltyScoreLogic()
+    novlogic = NoveltyScoreLogic()
     nc = NoveltyClient()
-    
+    cnt=0
     while not rospy.is_shutdown():
         if nc.ret !=None:
-            print "\nRESULTS = ", nc.ret
-            nsl.add(i.uuid, ret.spatial_dist)
-
-            values = nsl.spatial_scores.values()
-            nc.pub.publish(i.uuid)
-
-            print "mean of collection: ", nsl.mean()
-            print "sum of square deviations: ", nsl._ss()
-            if len(values)>1: print "population std dev: ",  nsl.pstdev()
-            #print nsl.spatial_scores
+            print "\n", cnt, nc.uuid
+            cnt+=1
+            print nc.ret
+  
+            if novlogic.test(nc.uuid, ret): 
+                nc.pub.publish(nc.uuid)
+            print novlogic.msg
             rospy.sleep(1)
-    
-    
-
 
     rospy.spin()
 
