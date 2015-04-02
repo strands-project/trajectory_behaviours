@@ -39,11 +39,8 @@ def generate_graph_data(episodes, data_dir, params, tag,
 
     for episodes_file in episodes:  
 
-        uuid, start, end = episodes_file.split('__')        
         if __out: rospy.loginfo('Processing for graphlets: ' + episodes_file)
-
-        episodes_dict = episodes[episodes_file]
-        episodes_list = list(itertools.chain.from_iterable(episodes_dict.values()))
+        episodes_list = episodes[episodes_file]
 
         activity_graphs[episodes_file] = Activity_Graph(episodes_list, params)
         activity_graphs[episodes_file].get_valid_graphlets()

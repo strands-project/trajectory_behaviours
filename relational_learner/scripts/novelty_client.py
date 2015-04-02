@@ -2,11 +2,10 @@
 
 import sys
 import rospy
-from relational_learner.srv import *
-#from relational_learner.msg import *
-import relational_learner.obtain_trajectories as ot
-from human_trajectory.msg import Trajectories
 from std_msgs.msg import String
+from relational_learner.srv import *
+from relational_learner.msg import *
+
 
 
 class NoveltyClient(object):
@@ -14,23 +13,23 @@ class NoveltyClient(object):
     def __init__(self):
         self.ret = None
         self.uuid = ''
-        self.pose = None
         
         self.pub = rospy.Publisher("/trajectory_behaviours/novel_trajectory", String, queue_size=10)
-        rospy.Subscriber("/human_trajectories/trajectories/batch", Trajectories, self.callback)
+        rospy.Subscriber("/trajectory_behaviours/episodes", episodesMsg, self.callback)
 
-    def novelty_client(self, Trajectory):
+    def novelty_client(self, msg):
         rospy.wait_for_service('/novelty_detection')
         proxy = rospy.ServiceProxy('/novelty_detection', NoveltyDetection)  
-        req = NoveltyDetectionRequest(Trajectory)
+        req = NoveltyDetectionRequest(msg)
         ret = proxy(req)
         return ret
 
     def callback(self, msg):
-        if len(msg.trajectories) > 0:
-            self.uuid = msg.trajectories[0].uuid
-            self.pose = msg.trajectories[0].trajectory[-1].pose
-            self.ret = self.novelty_client(msg.trajectories[0])
+        if len(msg.uuid) > 0:
+            self.uuid = msg.uuid
+            self.roi = msg.roi
+            self.episodes = msg.episodes
+            self.ret = self.novelty_client(msg)
 
 
 class NoveltyScoreLogic(object):
@@ -62,7 +61,8 @@ class NoveltyScoreLogic(object):
     
 if __name__ == "__main__":
     rospy.init_node('novelty_client')
-    
+    print "novelty client running..."
+
     novlogic = NoveltyScoreLogic()
     nc = NoveltyClient()
     cnt=0
@@ -72,7 +72,7 @@ if __name__ == "__main__":
             cnt+=1
             print nc.ret
   
-            if novlogic.test(nc.uuid, ret): 
+            if novlogic.test(nc.uuid, nc.ret): 
                 nc.pub.publish(nc.uuid)
             print novlogic.msg
             rospy.sleep(1)
