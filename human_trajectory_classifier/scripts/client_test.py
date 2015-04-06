@@ -2,7 +2,7 @@
 
 import rospy
 import actionlib
-from human_movement_identifier.msg import HMCAction, HMCGoal
+from human_trajectory_classifier.msg import HMCAction, HMCGoal
 
 
 def test():
