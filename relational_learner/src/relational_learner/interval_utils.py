@@ -227,8 +227,8 @@ def get_valid_graphlets_from_activity_intervals(episodes, params):
                         
                         #Only allow Graphlets of the specified number of Rows. Not all rows. 
                         if hash(selected_relations_set) not in graphlets:
-                            graphlets[hash(selected_relations_set)] = selected_relations_set              
-        
+                            graphlets[hash(selected_relations_set)] = selected_relations_set
+        #print "\n>>>episode selections:", graphlets
         # Replace the codes with the episodes and return as a list instead of dictionary                    
         for hash_key in graphlets:
             graphlet_episodes       = []

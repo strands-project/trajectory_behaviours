@@ -14,7 +14,7 @@ class NoveltyClient(object):
         self.ret = None
         self.uuid = ''
         
-        self.pub = rospy.Publisher("/trajectory_behaviours/novel_trajectory", String, queue_size=10)
+        self.pub = rospy.Publisher("/trajectory_behaviours/novel_trajectory", String, queue_size=1)
         rospy.Subscriber("/trajectory_behaviours/episodes", episodesMsg, self.callback)
 
     def novelty_client(self, msg):
@@ -27,8 +27,7 @@ class NoveltyClient(object):
     def callback(self, msg):
         if len(msg.uuid) > 0:
             self.uuid = msg.uuid
-            self.roi = msg.roi
-            self.episodes = msg.episodes
+            self.roi = msg.soma_roi_id
             self.ret = self.novelty_client(msg)
 
 
@@ -53,7 +52,7 @@ class NoveltyScoreLogic(object):
             self.msg=""
         else: self.msg = ""
 
-        if self.msg!="":
+        if self.msg != "":
             self.published_uuids.append(uuid)
             return True
         else: return False

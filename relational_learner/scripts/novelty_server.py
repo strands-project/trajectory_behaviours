@@ -10,6 +10,7 @@ from scipy.spatial import distance
 from relational_learner.msg import *
 from relational_learner.srv import *
 
+import relational_learner.config_utils as util
 import relational_learner.graphs_handler as gh
 import relational_learner.learningArea as la
 from time_analysis.cyclic_processes import *
@@ -27,33 +28,14 @@ class Importer(object):
                                            rospy.get_param("mongodb_port"))
         self._store_client = MessageStoreProxy(collection="relational_learner")
 
-
-def get_config_info():
-    user = getpass.getuser()
-    data_dir = os.path.join('/home/' + user + '/STRANDS/')
-    path = os.path.dirname(os.path.realpath(__file__))
-    if path.endswith("/scripts"): 
-        config_path = path.replace("/scripts", "/config.ini") 
-    config_parser = ConfigParser.SafeConfigParser()
-    print(config_parser.read(config_path))
-
-    if len(config_parser.read(config_path)) == 0:
-        raise ValueError("Config file not found, please provide a config.ini file as described in the documentation")
-    config_section = "soma" 
-    try:
-        map = config_parser.get(config_section, "soma_map")
-        config = config_parser.get(config_section, "soma_config")
-    except ConfigParser.NoOptionError:
-         raise  
-    return (data_dir, map, config, config_path)
-
-
 def episodesMsg_to_list(req):
     """Convert the EpisodesMsg into a list of episodes
        EpisodesMsg: 
             std_msgs/Header header
-            string uuid
-            string roi
+            string soma_roi_id
+            string soma_map
+            string soma_config
+            int64 start_time
             relational_learner/episodeMsg[] episodes
                 string obj1
                 string obj1_type
@@ -77,16 +59,23 @@ def handle_novelty_detection(req):
 
     """1. Get data from EpisodesMsg"""
     t0=time.time()
-    roi = req.episodes.roi
     uuid = req.episodes.uuid
+    print "\nUUID = ", uuid
+    roi = req.episodes.soma_roi_id
+    print "ROI = ", roi
+    eps_soma_map = req.episodes.soma_map
+    eps_soma_config = req.episodes.soma_config
     start_time = req.episodes.start_time
     all_episodes = episodesMsg_to_list(req)
 
     episodes_file = all_episodes.keys()[0]
     print "Length of Episodes = ", len(all_episodes[episodes_file])
  
-    (data_dir, soma_map, soma_config, config_path) = get_config_info()
-    
+    (data_dir, config_path) = util.get_path()
+    (soma_map, soma_config) = util.get_qsr_config(config_path)
+
+    if eps_soma_map != soma_map: raise ValueError("Config file soma_map not matching published episodes")
+    if eps_soma_config != soma_config: raise ValueError("Config file soma_config not matching published episodes")
 
     """4. Activity Graph"""
     ta0=time.time()
@@ -95,17 +84,18 @@ def handle_novelty_detection(req):
     
     activity_graphs = gh.generate_graph_data(all_episodes, data_dir, \
             params, tag, test=True)
-    #print "\n  ACTIVITY GRAPH: \n", activity_graphs[episodes_file].graph 
-    ta1=time.time()
 
+    print "\n  ACTIVITY GRAPH: \n", activity_graphs[episodes_file].graph 
+    ta1=time.time()
+    
     """5. Load spatial model"""
     print "\n  MODELS LOADED :"
     file_ = os.path.join(data_dir + 'learning/roi_' + roi + '_smartThing.p')
     smartThing=la.Learning(load_from_file=file_)
     #print smartThing.methods
+
     print "code book = ", smartThing.code_book
-    #print "\n  GRAPHLET: \n", smartThing.graphlet_book[0].graph
-    
+
     """6. Create Feature Vector""" 
     test_histogram = activity_graphs[episodes_file].get_histogram(smartThing.code_book)
     print "HISTOGRAM = ", test_histogram
@@ -115,7 +105,9 @@ def handle_novelty_detection(req):
     """activityGraphMsg:
             std_msgs/Header header
             string uuid
-            string roi
+            string soma_roi_id
+            string soma_map
+            string soma_config
             int64[] codebook
             float32[] histogram
     """
@@ -179,8 +171,9 @@ def handle_novelty_detection(req):
     knowledge = smartThing.methods['roi_knowledge'][roi]
     print "Region/Time Knowledge = ", knowledge
     t = datetime.fromtimestamp(start_time)
+    print "Date/Time = ", t
     th = knowledge[t.hour]
-    print "knowledge score = ", th
+    print "Region knowledge = ", th
 
     print "\n Service took: ", time.time()-t0, "  secs."
     print "  AG took: ", ta1-ta0, "  secs."

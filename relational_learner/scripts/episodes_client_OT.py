@@ -41,9 +41,10 @@ if __name__ == "__main__":
     ec = EpisodeClient()
 
     ### Query all ROI 12 to test (or just one dude) ###
-    #query = '''{"uuid": "328e2f8c-6147-5525-93c4-1b281887623b"}''' 
+    #query = '''{"uuid": "7d638405-b2f8-55ce-b593-efa8e3f2ff2e"}''' 
     ###geoIntersects? - Fix
 
+    
     query ='''{"loc": { "$geoWithin": { "$geometry":
         { "type" : "Polygon", "coordinates" : [ [ 
                     [ -0.0002246355582968818, 
@@ -57,6 +58,7 @@ if __name__ == "__main__":
                     [ -0.0002246355582968818, 
                       -2.519034444503632e-05]
                     ] ] }}}}'''
+    
     q = ot.query_trajectories(query)
 
     #test_list= [q.res.trajectories.trajectories[0],q.res.trajectories.trajectories[1],\
@@ -69,7 +71,7 @@ if __name__ == "__main__":
 
         ret = ec.episode_client(i)
         #print ret.header
-        print ret.uuid, ret.roi
+        print ret.uuid, ret.soma_roi_id
         print "len = ", len(ret.episodes)
         ec.pub.publish(ret)
         rospy.sleep(1) 

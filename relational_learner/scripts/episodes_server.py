@@ -8,6 +8,7 @@ import sys, os, getpass, time
 import ConfigParser
 import itertools
 from datetime import datetime
+import relational_learner.config_utils as util
 from soma_geospatial_store.geospatial_store import * 
 import relational_learner.obtain_trajectories as ot
 import novelTrajectories.traj_data_reader as tdr
@@ -86,26 +87,6 @@ def get_poses(trajectory_message):
 
 
 
-def get_config_info():
-    user = getpass.getuser()
-    data_dir = os.path.join('/home/' + user + '/STRANDS/')
-    path = os.path.dirname(os.path.realpath(__file__))
-    if path.endswith("/scripts"): 
-        config_path = path.replace("/scripts", "/config.ini") 
-    config_parser = ConfigParser.SafeConfigParser()
-    print(config_parser.read(config_path))
-
-    if len(config_parser.read(config_path)) == 0:
-        raise ValueError("Config file not found, please provide a config.ini file as described in the documentation")
-    config_section = "soma" 
-    try:
-        map = config_parser.get(config_section, "soma_map")
-        config = config_parser.get(config_section, "soma_config")
-    except ConfigParser.NoOptionError:
-         raise  
-    return (data_dir, map, config, config_path) 
-
-
 def handle_episodes(req):
     """     1. Take trajectory as input
             2. Query mongodb for the region and objects
@@ -114,7 +95,8 @@ def handle_episodes(req):
     """
 
     t0=time.time()
-    (data_dir, soma_map, soma_config, config_path) = get_config_info()
+    (data_dir, config_path) = util.get_path()
+    (soma_map, soma_config) = util.get_qsr_config(config_path)
 
     """1. Trajectory Message"""
     uuid = req.trajectory.uuid
@@ -175,15 +157,15 @@ def handle_episodes(req):
     """6.5 Upload data to Mongodb"""
     tm0 = time.time()
     h = req.trajectory.header
-    meta = {"map":soma_map, "config":soma_config}
+    meta = {}
 
-    msg = episodesMsg(header=h, uuid=uuid, roi=str(roi), start_time=start_time, \
-            episodes=get_episode_msg(ep.all_episodes[episodes_file]))
+    msg = episodesMsg(header=h, uuid=uuid, soma_roi_id=str(roi),  soma_map=soma_map, \
+                    soma_config=soma_config, start_time=start_time, \
+                    episodes=get_episode_msg(ep.all_episodes[episodes_file]))
 
     #MongoDB Query - to see whether to insert new document, or update existing doc.
     query = {"uuid" : str(uuid)} 
-    p_id = Importer()._store_client.update(message=msg, message_query=query,\
-                                           meta=meta, upsert=True)
+    p_id = Importer()._store_client.update(message=msg, message_query=query, meta=meta, upsert=True)
 
     tm1 = time.time()
 
@@ -192,7 +174,8 @@ def handle_episodes(req):
     print "  Episodes took: ", te1-te0, "  secs."
     print "  Mongo upload took: ", tm1-tm0, "  secs."
 
-    return EpisodeServiceResponse(msg.header, msg.uuid, msg.roi, msg.start_time, msg.episodes)
+    return EpisodeServiceResponse(msg.header, msg.uuid, msg.soma_roi_id, msg.soma_map, \
+                                  msg.soma_config, msg.start_time, msg.episodes)
 
 
 def generate_episodes():
