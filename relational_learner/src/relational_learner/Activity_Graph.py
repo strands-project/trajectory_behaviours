@@ -78,11 +78,9 @@ def f(valid_eps, params):
     valid_graphlets_cnts = {}           
 
     for single_graphlet in list_of_graphlets:
-
-
         act_graphlets = episodes_to_activity_graph(single_graphlet, params)
         (ghash, g) = get_graph_hash(act_graphlets)
-        
+
         if ghash in valid_graphlets_cnts:
             #This adds one to the graph hash (graphlet) count
             cnt = valid_graphlets_cnts[ghash]
@@ -94,8 +92,8 @@ def f(valid_eps, params):
             
             #These are the actual iGraph graphlets:
             valid_graphlets[window][ghash] = g
-            
-    graphlet_hash_cnts[window] = valid_graphlets_cnts    
+          
+    graphlet_hash_cnts[window] = valid_graphlets_cnts
     return (graphlet_hash_cnts, valid_graphlets)
 
 
@@ -188,6 +186,8 @@ class Activity_Graph():
 
         valid_graphlets_dict = get_valid_graphlets_from_activity_intervals(\
             self.episodes, self.params)      
+
+        #print "\n window:episodes", valid_graphlets_dict.items()[0]
 
         list_of_output=[]
         list_of_output.append(f(valid_graphlets_dict.items()[0], self.params))

@@ -50,6 +50,9 @@ catkin_python_setup()
  add_message_files(
    FILES
    novelTrajectory.msg
+   episodeMsg.msg
+   episodesMsg.msg
+   activityGraphMsg.msg
 #   Message2.msg
  )
 
@@ -57,6 +60,7 @@ catkin_python_setup()
 add_service_files(
    FILES
    NoveltyDetection.srv
+   EpisodeService.srv
 #   Service1.srv
 #   Service2.srv
  )

@@ -108,7 +108,7 @@ class Learning():
         
         self.methods["kmeans"] = estimator
         if self.visualise: plot_pca(data, k)
-        rospy.loginfo('6. Done')
+        rospy.loginfo('Done\n')
 
 
     def kmeans_cluster_radius(self, data, estimator):
@@ -180,9 +180,19 @@ class Learning():
 
     def time_analysis(self, time_points, interval=1800):
         timestamps_vec = time_wrap(time_points)[0]
+        print "timestamps = ", timestamps_vec
+
+        #start_time = min(time_points)
+        #print "min time = ", start_time
+        #wrapped_min = time_wrap([start_time])[0][0]
+        #print "wrapped = ", time_wrap([start_time])[0][0], "\n"
+
 
         dyn_cl = dynamic_clusters()
         for t in range(len(timestamps_vec)):
+            #print ">>>", t, timestamps_vec[t], (timestamps_vec[t]-wrapped_min), ((timestamps_vec[t]-wrapped_min) % 86400)
+            
+            #dyn_cl.add_element(t+1,timestamps_vec[t])
             dyn_cl.add_element(t+1,timestamps_vec[t])
         fitting = activity_time(timestamps_vec, interval=interval)
         
@@ -194,6 +204,7 @@ class Learning():
     def region_knowledge(self, map, config, \
                         interval=3600.0, period = 86400.0):
         """Returns the ROIs the robot can montitor at each pose"""
+        print "Getting Region Knowledge..."
         t0 = time.time()
         n_bins = int(period/interval)
 

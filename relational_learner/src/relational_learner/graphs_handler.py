@@ -39,11 +39,8 @@ def generate_graph_data(episodes, data_dir, params, tag,
 
     for episodes_file in episodes:  
 
-        uuid, start, end = episodes_file.split('__')        
         if __out: rospy.loginfo('Processing for graphlets: ' + episodes_file)
-
-        episodes_dict = episodes[episodes_file]
-        episodes_list = list(itertools.chain.from_iterable(episodes_dict.values()))
+        episodes_list = episodes[episodes_file]
 
         activity_graphs[episodes_file] = Activity_Graph(episodes_list, params)
         activity_graphs[episodes_file].get_valid_graphlets()
@@ -53,11 +50,12 @@ def generate_graph_data(episodes, data_dir, params, tag,
         if __out: print cnt
     
     if test: 
+        rospy.loginfo('Activity Graph Data Generated')
         return activity_graphs
     else:
         AG_out_file = os.path.join(data_dir + 'activity_graphs_' + tag + '.p')
         pickle.dump(activity_graphs, open(AG_out_file,'w')) 
-        rospy.loginfo('4. Activity Graph Data Generated and saved to:\n' + AG_out_file)
+        rospy.loginfo('Activity Graph Data Generated and saved to:\n' + AG_out_file)
     print "Done. Took %f seconds." % (time.time()-t0)
     return
 
@@ -83,7 +81,7 @@ def generate_feature_space(data_dir, tag, __out=False):
     AG_out_file = os.path.join(data_dir + 'activity_graphs_' + tag + '.p')
     activity_graphs = pickle.load(open(AG_out_file))
     
-    rospy.loginfo('5. Generating codebook')
+    rospy.loginfo('Generating codebook')
     code_book, graphlet_book = [], []
     code_book_set, graphlet_book_set = set([]), set([])
     for episodes_file in activity_graphs: 
@@ -103,9 +101,9 @@ def generate_feature_space(data_dir, tag, __out=False):
         print "BOOK OF HASHES DOES NOT EQUAL BOOK OF ACTIVITY GRAPHS"
         sys.exit(1)
 
-    rospy.loginfo('5. Generating codebook FINISHED')
+    rospy.loginfo('Generating codebook FINISHED')
 
-    rospy.loginfo('5. Generating features')
+    rospy.loginfo('Generating features')
     cnt = 0
     X_source_U = []
     #Histograms are Windowed dictionaries of histograms 
@@ -129,8 +127,7 @@ def generate_feature_space(data_dir, tag, __out=False):
     feature_space_out_file = os.path.join(data_dir + 'feature_space_' + tag + '.p')
     pickle.dump(feature_space, open(feature_space_out_file, 'w'))
     print "\nall graph and histogram data written to: \n" + repr(data_dir) 
-    print "Done. Took %f seconds." % (time.time()-t0)
-    rospy.loginfo('Done')
+    print "Done. Took %f seconds.\n" % (time.time()-t0)
     return feature_space
 
 
