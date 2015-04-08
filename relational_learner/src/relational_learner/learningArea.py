@@ -89,21 +89,21 @@ class Learning():
         data = X #_s
         if k!=None:
             (estimator, penalty) = self.kmeans_util(data, k=k)
-
         else:
             print "Automatically selecting k"
-            for k in xrange(1, len(data)/3):
+            #self.visualise = True
+            min_k = 3
+            for k in xrange(min_k, len(data)/3):
                 (estimator, penalty) = self.kmeans_util(data, k) 
-                if k==1: 
-                    best_pen = penalty
-                    best_k = 1
+                if k==min_k: 
+                    (best_e, best_p, best_k) = estimator, penalty, k
+                if penalty < best_p:
+                    (best_e, best_p, best_k) = estimator, penalty, k
+            estimator, penalty, k = (best_e, best_p, best_k)
 
-                if penalty < best_pen:
-                    best_pen = penalty
-                    best_k = k
-            k = best_k
             print "k = %d has minimum inertia*penalty" %k
         
+    
         estimator = self.kmeans_cluster_radius(data, estimator)
         
         self.methods["kmeans"] = estimator
@@ -113,9 +113,9 @@ class Learning():
 
     def kmeans_cluster_radius(self, data, estimator):
         n_samples, n_features = data.shape
-        print "INERTIA = ", estimator.inertia_
+        print "sum of inertias = ", estimator.inertia_
         #print "CLUSTER CENTERS = ", estimator.cluster_centers_
-        print "LABELS = ", estimator.labels_
+        print "sample labels = ", estimator.labels_
     
         cluster_radius = {}
         for i, sample in enumerate(data):
@@ -133,13 +133,12 @@ class Learning():
         for label in cluster_radius:
             means[label] = np.mean(cluster_radius[label])
             std[label] = np.std(cluster_radius[label])
-        print means
-        print std
+        print "avg distance to clusters", means
+        print "std distance to clusters", std
         
         estimator.cluster_dist_means = means
         estimator.cluster_dist_std = std
 
-        print estimator.cluster_dist_means
         return estimator
 
     def kmeans_util(self, data, k=None):
@@ -179,32 +178,29 @@ class Learning():
          
 
     def time_analysis(self, time_points, interval=1800):
-        timestamps_vec = time_wrap(time_points)[0]
-        print "timestamps = ", timestamps_vec
+        """Number of seconds in a day = 86400"""
 
-        #start_time = min(time_points)
-        #print "min time = ", start_time
-        #wrapped_min = time_wrap([start_time])[0][0]
-        #print "wrapped = ", time_wrap([start_time])[0][0], "\n"
-
+        first_day = int(min(time_points)/86400)
 
         dyn_cl = dynamic_clusters()
-        for t in range(len(timestamps_vec)):
-            #print ">>>", t, timestamps_vec[t], (timestamps_vec[t]-wrapped_min), ((timestamps_vec[t]-wrapped_min) % 86400)
-            
-            #dyn_cl.add_element(t+1,timestamps_vec[t])
-            dyn_cl.add_element(t+1,timestamps_vec[t])
+        for t in time_points:
+            day = int(t/86400)-first_day+1
+            #print day
+            time_in_day = t%86400   #in seconds
+            dyn_cl.add_element(day,time_in_day) 
+
+        timestamps_vec = time_wrap(time_points)[0]    
         fitting = activity_time(timestamps_vec, interval=interval)
-        
+
         #plot_options: title, hist_colour, curve_colour
         #stop = fitting.display_indexes(['trajectories','g','b'],dyn_cl,[]) 
         self.methods["time_dyn_clst"] = dyn_cl
         self.methods["time_fitting"] = fitting
+        rospy.loginfo('Done\n')
 
     def region_knowledge(self, map, config, \
                         interval=3600.0, period = 86400.0):
         """Returns the ROIs the robot can montitor at each pose"""
-        print "Getting Region Knowledge..."
         t0 = time.time()
         n_bins = int(period/interval)
 
@@ -250,7 +246,7 @@ class Learning():
         self.knowledge_plot(n_bins)
         self.methods["roi_knowledge"] = self.roi_knowledge
         self.methods["roi_knowledge"] = self.roi_temp_know
-
+        rospy.loginfo('Done')
         
 
     

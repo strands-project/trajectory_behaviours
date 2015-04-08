@@ -111,6 +111,7 @@ def run_all():
         
         #for cnt, i in enumerate(graphlet_book):
         #    print cnt,  i.graph, "\n"
+
         #**************************************************************#
         #                    Learn a Clustering model                  #
         #**************************************************************#
@@ -118,27 +119,27 @@ def run_all():
         params, tag = AG_setup(input_data, date, str_roi)
 
         smartThing=Learning(f_space=feature_space, roi=str_roi, vis=False)
-        smartThing.kmeans(k=2) #Can pass k, or auto selects min(penalty)
-        
-
-        #*******************************************************************#
-        #                    Region Knowledge                               #
-        #*******************************************************************#
-        #Only learn ROI Knowledge once for all regions. 
-               
-        if roi_cnt==0: 
-            smartThing.region_knowledge(soma_map, soma_config)
-            roi_knowledge = smartThing.methods["roi_knowledge"]
-        else:
-            smartThing.methods["roi_knowledge"] = roi_knowledge
+        smartThing.kmeans(k=None) #Can pass k, or auto selects min(penalty)
         
 
         #*******************************************************************#
         #                    Temporal Analysis                              #
         #*******************************************************************#
-        print "traj times = ", trajectory_times, "\n"
+        rospy.loginfo('Learning Temporal Measures')
+        #print "traj times = ", trajectory_times, "\n"
         smartThing.time_analysis(trajectory_times)
-   
+
+        #*******************************************************************#
+        #                    Region Knowledge                               #
+        #*******************************************************************#
+        #Only learn ROI Knowledge once for all regions. 
+        rospy.loginfo('Getting Region Knowledge...')
+        if roi_cnt==0: 
+            smartThing.region_knowledge(soma_map, soma_config)
+            roi_knowledge = smartThing.methods["roi_knowledge"]
+        else:
+            smartThing.methods["roi_knowledge"] = roi_knowledge
+
         #print roi_knowledge[roi]
         #smartThing.time_plot(q.trajectory_times, roi_knowledge[roi], vis=True)
         
@@ -146,7 +147,6 @@ def run_all():
         print "Learnt models for: "
         for key in smartThing.methods:
             print "    ", key
-            #print smartThing.methods[key]
   
         roi_cnt+=1
 
