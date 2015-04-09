@@ -11,67 +11,65 @@ Prerequisites
 - soma_trajectory
 - qsrlib
 
-Getting started (general steps)
+Getting started
 -------------------------------
-1. Start the ros core:
-
-    ```
-   $ roscore
-    ```
-2. Launch the ROS datacentre:
-
+1. Run mongodb datacentres:
     ```
     $ roslaunch mongodb_store mongodb_store.launch db_path:= <path>
     $ roslaunch mongodb_store mongodb_store.launch db_path:=/home/strands/mongodb_store/bham_trajectory_store/
     ```
   where `path` specifies the path to your mongodb_store
 
-3. Run people perception to publish detected trajectories:
-
+2. Make sure people perception is running to publish detected trajectories:
     ```
-    $ roslaunch ...
+    $ roslaunch perception_people_launch people_tracker_robot.launch
     ```
 
-  Alternatively, you can run `soma_trajectory` and obtain test trajectories from mongodb store:
-  
+3. Also run the online-trajectory stiching tool:
+    ```
+    $ rosrun human_trajectory trajectory_publisher.py [publish_interval][online(1)/offline(0)]
+    ```
+  see [here](https://github.com/strands-project/trajectory_behaviours/tree/master/human_trajectory_classifier) for more details.
+
+  Alternatively to step 2 and 3, you can run `soma_trajectory` and obtain test trajectories from mongodb store:
     ```
     $ rosrun soma_trajectory trajectory_query_service.py 
     ```
   
-5. Run QSRLib Service:
-
+4. Make sure the QSRLib Service is running:
     ```
     $ rosrun qsr_lib qsrlib_ros_server.py 
     ```
 
-5. Run Episodes Service:
-
+5. Run the Episodes Service:
     ```
     $ rosrun relational_learner episode_server.py
     ```
 
-6. Run Novelty Service:
+6. Run the Novelty Service:
 
     ```
     $ rosrun relational_learner novelty_server.py
     ```
 
-7. Run Episodes Client: 
+7. Run the Episodes node: 
     ```
     $ rosrun relational_learner episodes_client.py
     ```
 
-8. Run Novelty Client: 
+8. Run Novelty node: 
     ```
     $ rosrun relational_learner novelty_client.py
     ```
 
 Note:
 -----
-This package can be run offline by running `soma_trajectory` in step 3 instead of `people_perception`. In this case, step 7 becomes:
+This package can be run offline by running `soma_trajectory` in step 2 and 3 instead of `people_perception`. In this case, step 7 becomes:
     ```
     $ rosrun relational_learner episodes_client_OT.py
     ```
-This queries one region's trajectories from mongodb_store instead of subscribing to published trajectories. 
+
+
+which queries one region's trajectories from mongodb_store instead of subscribing to published trajectories. 
 
 
