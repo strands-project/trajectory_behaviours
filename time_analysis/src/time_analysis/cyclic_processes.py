@@ -167,7 +167,7 @@ class dynamic_clusters:
         self.LS[i] += t
         self.SS[i] += t**2
         self.compute_measures(i)
-        self.L[i] = self.R[i]*np.sqrt(1+d/self.T[i])
+        self.L[i] = 2*self.R[i]*np.sqrt(d/self.T[i])
         
     def add_element(self,d,t):
         if self.K == 0:
@@ -182,7 +182,7 @@ class dynamic_clusters:
     
     def update_record(self,d,t):
         for c in range(self.K):
-            self.L[c] = self.R[c]*np.sqrt(1+d/self.T[c])
+            self.L[c] = 2*self.R[c]*np.sqrt(d/self.T[c])
         seq = sorted(range(self.K), key=lambda i: self.C[i])
         c = 0
         while c < len(seq)-1:
@@ -197,7 +197,7 @@ class dynamic_clusters:
         self.LS[i] += self.LS[j]
         self.SS[i] += self.SS[j]
         self.compute_measures(i)
-        self.L[i] = self.R[i]*np.sqrt(1+d/self.T[i])
+        self.L[i] = 2*self.R[i]*np.sqrt(d/self.T[i])
         self.delete_cluster(j)
         
     def compute_measures(self,i):
@@ -217,7 +217,7 @@ class dynamic_clusters:
         del self.L[i]
        
     def query_clusters(self,t):
-        p = np.min([abs(c-t)/(2*l) for (c,l) in zip(self.C,self.L)])
+        p = np.min([abs(c-t)/l for (c,l) in zip(self.C,self.L)])
         return (1-p)
          
 #################################  
