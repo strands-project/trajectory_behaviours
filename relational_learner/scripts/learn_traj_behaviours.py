@@ -22,7 +22,7 @@ from human_trajectory.msg import Trajectory, Trajectories
 from soma_trajectory.srv import TrajectoryQuery, TrajectoryQueryRequest, TrajectoryQueryResponse
 from soma_geospatial_store.geospatial_store import *
 
-import relational_learner.config_utils as util
+import novelTrajectories.config_utils as util
 import relational_learner.obtain_trajectories as ot
 from relational_learner.graphs_handler import *
 from novelTrajectories.traj_data_reader import *
@@ -57,7 +57,7 @@ def run_all():
     """
     (directories, config_path, input_data, date) = util.get_learning_config()
     (data_dir, qsr, eps, activity_graph_dir, learning_area) = directories
-    (soma_map, soma_config) = util.get_qsr_config(config_path)
+    (soma_map, soma_config) = util.get_map_config(config_path)
 
     gs = GeoSpatialStoreProxy('geospatial_store','soma')
     msg_store = GeoSpatialStoreProxy('message_store', 'relational_episodes')
@@ -104,6 +104,7 @@ def run_all():
         feature_space = generate_feature_space(activity_graph_dir, tag)
         
         (code_book, graphlet_book, X_source_U) = feature_space
+        print "code_book length = ", len(code_book)
 
         #print ">>>>>CODEBOOK 1:"
         #print code_book[1]
@@ -135,7 +136,7 @@ def run_all():
         #Only learn ROI Knowledge once for all regions. 
         rospy.loginfo('Getting Region Knowledge...')
         if roi_cnt==0: 
-            smartThing.region_knowledge(soma_map, soma_config)
+            smartThing.region_knowledge(soma_map, soma_config, sampling_rate = 10)
             roi_knowledge = smartThing.methods["roi_knowledge"]
         else:
             smartThing.methods["roi_knowledge"] = roi_knowledge

@@ -61,12 +61,13 @@ if __name__ == "__main__":
     
     q = ot.query_trajectories(query)
 
-    #test_list= [q.res.trajectories.trajectories[0],q.res.trajectories.trajectories[1],\
-    #    q.res.trajectories.trajectories[1], q.res.trajectories.trajectories[2], \
-    #    q.res.trajectories.trajectories[2], q.res.trajectories.trajectories[2],\
-    #    q.res.trajectories.trajectories[0], q.res.trajectories.trajectories[0]]
+    test_list= [q.res.trajectories.trajectories[0],q.res.trajectories.trajectories[1],\
+       q.res.trajectories.trajectories[1], q.res.trajectories.trajectories[2], \
+       q.res.trajectories.trajectories[2], q.res.trajectories.trajectories[2],\
+       q.res.trajectories.trajectories[0], q.res.trajectories.trajectories[0]]
 
     for cnt, i in enumerate(q.res.trajectories.trajectories):
+    #for cnt, i in enumerate(test_list):
         print "\n",cnt, i.uuid
 
         ret = ec.episode_client(i)

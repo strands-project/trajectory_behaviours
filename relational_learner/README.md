@@ -20,6 +20,12 @@ Getting started
     ```
   where `path` specifies the path to your mongodb_store
 
+
+  Also run the mongodb robot pose logging tool:
+    ```
+    $ rosrun mongodb_log mongodb_log.py /robot_pose
+    ```
+
 2. Make sure people perception is running to publish detected trajectories:
     ```
     $ roslaunch perception_people_launch people_tracker_robot.launch
