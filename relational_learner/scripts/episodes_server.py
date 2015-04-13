@@ -8,10 +8,11 @@ import sys, os, getpass, time
 import ConfigParser
 import itertools
 from datetime import datetime
-import relational_learner.config_utils as util
+
 from soma_geospatial_store.geospatial_store import * 
 import relational_learner.obtain_trajectories as ot
 import novelTrajectories.traj_data_reader as tdr
+import novelTrajectories.config_utils as util
 
 from relational_learner.msg import *
 from relational_learner.srv import *
@@ -95,14 +96,14 @@ def handle_episodes(req):
     """
 
     t0=time.time()
-    (data_dir, config_path) = util.get_path()
-    (soma_map, soma_config) = util.get_qsr_config(config_path)
 
     """1. Trajectory Message"""
     uuid = req.trajectory.uuid
     start_time = req.trajectory.start_time.secs
     print "1. Analysing trajectory: %s" %uuid
 
+    (data_dir, config_path) = util.get_path()
+    (soma_map, soma_config) = util.get_map_config(config_path)
     
     trajectory_poses = {uuid : get_poses(req.trajectory)}
     print "LENGTH of Trajectory: ", len(trajectory_poses[uuid])
@@ -114,25 +115,23 @@ def handle_episodes(req):
 
     roi = two_proxies.trajectory_roi(req.trajectory.uuid, trajectory_poses[uuid])
     objects = two_proxies.roi_objects(roi)
-    print "\n  ROI: ", roi
-    print "\n  Objects: ", objects
+    print "\nROI: ", roi
+    #print "\n  Objects: ", objects
 
     """2.5 Get the closest objects to the trajectory"""
     closest_objs_to_trajs = ot.trajectory_object_dist(objects, trajectory_poses)
-
 
     """3. QSRLib data parser"""#
     tq0=time.time()
     qsr_reader = tdr.Trajectory_Data_Reader(objects=objects, \
                                         trajectories=trajectory_poses, \
                                         objs_to_traj_map = closest_objs_to_trajs, \
-                                        config_filename=config_path, \
                                         roi=roi)
 
     tr = qsr_reader.spatial_relations[uuid].trace
+
     #for i in tr:
-    #    print tr[i].qsrs['Printer (photocopier)_5,trajectory'].qsr
-    #print tr
+    #   print tr[i].qsrs['Printer (photocopier)_2,trajectory'].qsr
 
     """3.5 Check the uuid is new (or stitch QSRs together)"""
     stitching.merge_qsr_worlds(uuid, qsr_reader)
@@ -142,18 +141,16 @@ def handle_episodes(req):
     """4. Episodes"""
     te0=time.time()
     ep = tdr.Episodes(reader=qsr_reader)
-    ep.get_episodes(noise_thres=3)
+    te1=time.time()
     #print "\n  ALL EPISODES :"
     #for t in ep.all_episodes:
     #    for o in ep.all_episodes[t]:
     #        print ep.all_episodes[t][o]
-    te1=time.time()
-    
+        
     episodes_file = ep.all_episodes.keys()[0] #This gives the ID of the Trajectory
     uuid, start, end = episodes_file.split('__')  #Appends the start and end frame #
     print episodes_file
 
-    """STOP HERE AND UPLOAD TO MONGODB"""
     """6.5 Upload data to Mongodb"""
     tm0 = time.time()
     h = req.trajectory.header
@@ -163,7 +160,7 @@ def handle_episodes(req):
                     soma_config=soma_config, start_time=start_time, \
                     episodes=get_episode_msg(ep.all_episodes[episodes_file]))
 
-    #MongoDB Query - to see whether to insert new document, or update existing doc.
+    #MongoDB Query - to see whether to insert new document, or update an existing doc.
     query = {"uuid" : str(uuid)} 
     p_id = Importer()._store_client.update(message=msg, message_query=query, meta=meta, upsert=True)
 
@@ -172,7 +169,7 @@ def handle_episodes(req):
     print "\nService took: ", time.time()-t0, "  secs."
     print "  Data Reader took: ", tq1-tq0, "  secs."
     print "  Episodes took: ", te1-te0, "  secs."
-    print "  Mongo upload took: ", tm1-tm0, "  secs."
+    print "  Mongo upload took: ", tm1-tm0, "  secs.\n"
 
     return EpisodeServiceResponse(msg.header, msg.uuid, msg.soma_roi_id, msg.soma_map, \
                                   msg.soma_config, msg.start_time, msg.episodes)

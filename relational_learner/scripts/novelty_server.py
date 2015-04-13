@@ -10,7 +10,7 @@ from scipy.spatial import distance
 from relational_learner.msg import *
 from relational_learner.srv import *
 
-import relational_learner.config_utils as util
+import novelTrajectories.config_utils as util
 import relational_learner.graphs_handler as gh
 import relational_learner.learningArea as la
 from time_analysis.cyclic_processes import *
@@ -71,21 +71,27 @@ def handle_novelty_detection(req):
     episodes_file = all_episodes.keys()[0]
     print "Length of Episodes = ", len(all_episodes[episodes_file])
  
-    (data_dir, config_path) = util.get_path()
-    (soma_map, soma_config) = util.get_qsr_config(config_path)
-
+    (directories, config_path, input_data, date) = util.get_learning_config()
+    (data_dir, qsr, eps, graphs, learning_area) = directories
+    #(data_dir, config_path, params, date) = util.get_qsr_config()
+    (soma_map, soma_config) = util.get_map_config(config_path)
+    
     if eps_soma_map != soma_map: raise ValueError("Config file soma_map not matching published episodes")
     if eps_soma_config != soma_config: raise ValueError("Config file soma_config not matching published episodes")
 
+    params, tag = gh.AG_setup(input_data, date, roi)
+
+    print "params = ", params
+    print "tag = ", tag
+
+    print "OR: "
     """4. Activity Graph"""
     ta0=time.time()
-    params = (None, 1, 3, 4)
-    tag = 'None_1_3_4__19_02_2015'
-    
+
     activity_graphs = gh.generate_graph_data(all_episodes, data_dir, \
             params, tag, test=True)
 
-    print "\n  ACTIVITY GRAPH: \n", activity_graphs[episodes_file].graph 
+    #print "\n  ACTIVITY GRAPH: \n", activity_graphs[episodes_file].graph 
     ta1=time.time()
     
     """5. Load spatial model"""
@@ -130,7 +136,7 @@ def handle_novelty_detection(req):
     closest_cluster = estimator.predict(test_histogram)
     
     print "INERTIA = ", estimator.inertia_
-    print "CLUSTER CENTERS = ", estimator.cluster_centers_
+    #print "CLUSTER CENTERS = ", estimator.cluster_centers_
 
     a = test_histogram
     b = estimator.cluster_centers_[closest_cluster]
@@ -166,14 +172,18 @@ def handle_novelty_detection(req):
     print "PC = ", pc
     print "PF = ", pf
 
-
     """9. ROI Knowledge"""
-    knowledge = smartThing.methods['roi_knowledge'][roi]
-    print "Region/Time Knowledge = ", knowledge
-    t = datetime.fromtimestamp(start_time)
-    print "Date/Time = ", t
-    th = knowledge[t.hour]
-    print "Region knowledge = ", th
+    if roi in smartThing.methods['roi_knowledge']:
+        knowledge = smartThing.methods['roi_knowledge'][roi]
+        print "Region/Time Knowledge = ", knowledge
+        t = datetime.fromtimestamp(start_time)
+        print "Date/Time = ", t
+
+        th = knowledge[t.hour]
+        print "Region knowledge = ", th
+    else:
+        print "No Region knowledge"
+        th = 0
 
     print "\n Service took: ", time.time()-t0, "  secs."
     print "  AG took: ", ta1-ta0, "  secs."

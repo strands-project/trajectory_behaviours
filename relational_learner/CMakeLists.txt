@@ -53,6 +53,8 @@ catkin_python_setup()
    episodeMsg.msg
    episodesMsg.msg
    activityGraphMsg.msg
+   RegionKnowledgeMsg.msg
+   HourlyKnowledgeMsg.msg
 #   Message2.msg
  )
 
