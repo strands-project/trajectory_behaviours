@@ -248,7 +248,6 @@ class Learning():
         for cnt, p in enumerate(roslog.find(query)):
             if cnt % sampling_rate != 0: continue   #Take 1/10 of the roslog poses
             timepoint = cnt/sampling_rate
-            if timepoint > 20: continue
 
             #print p
             pose = p['position']
