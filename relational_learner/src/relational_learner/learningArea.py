@@ -7,7 +7,7 @@ __copyright__   = "Copyright 2015, University of Leeds"
 
 import os, sys
 import rospy
-import time
+import datetime, time
 import math
 import cPickle as pickle
 import numpy as np
@@ -222,19 +222,21 @@ class Learning():
         t0 = time.time()
         n_bins = int(period/interval)
 
+        ##Get info stored in Mongodb Region Knowledge Store
         ks = RegionKnowledgeImporter()
         existing_knowledge = {}
-        #existing_hourly_knowledge = {}
+        existing_hourly_knowledge = {}
 
         query = {"soma_roi_id"  : {"$exists": "true"}, 
                 "roi_knowledge" : {"$exists": "true"}}
         for region in ks.find(query):
             existing_knowledge[str(region["soma_roi_id"])] = int(region["roi_knowledge"])
-        #    existing_hourly_knowledge[str(region["soma_roi_id"])] = region["roi_knowledge_hourly"]
+            existing_hourly_knowledge[str(region["soma_roi_id"])] = region["roi_knowledge_hourly"]
 
         print "existing knowledge = ", existing_knowledge
-        #print "existing hourly knowledge = ", existing_hourly_knowledge
+        print "existing hourly knowledge = ", existing_hourly_knowledge
 
+        ##Query the Robot Poses from roslog
         gs = GeoSpatialStoreProxy('geospatial_store','soma')
         ms = GeoSpatialStoreProxy('message_store','soma_roi')
         roslog = GeoSpatialStoreProxy('roslog','robot_pose')
@@ -242,17 +244,20 @@ class Learning():
         query = {"_id": {"$exists": "true"}}
         print "sampling rate =", sampling_rate
 
-        #Loop through the robot poses for the day
+        ##Loop through the robot poses for the day
         for cnt, p in enumerate(roslog.find(query)):
             if cnt % sampling_rate != 0: continue   #Take 1/10 of the roslog poses
             timepoint = cnt/sampling_rate
             if timepoint > 20: continue
-            #print timepoint
 
+            #print p
             pose = p['position']
             ro, pi, yaw = euler_from_quaternion([0, 0, \
                     p['orientation']['z'], p['orientation']['w'] ])
-       
+
+            inserted_at = p['_meta']['inserted_at']
+            hour = inserted_at.time().hour
+
             coords = robot_view_cone(pose['x'], pose['y'], yaw)
             lnglat = []
             for pt in coords:
@@ -260,7 +265,7 @@ class Learning():
             #add first points again to make it a complete polygon
             lnglat.append(gs.coords_to_lnglat(coords[0][0], coords[0][1]))
 
-            ##This is the viewcone coords of looking at the Library, roi=20
+            ##This is the viewcone coords of looking at the Library, roi=20 (TEST)
             #lnglat =[[0.0001383168733184448, 
             #        5.836986395024724e-05], 
             #    [6.036547989651808e-05, 
@@ -271,7 +276,7 @@ class Learning():
             #        5.836986395024724e-05]]
 
             self.roi_knowledge = existing_knowledge
-            #self.roi_temp_list = existing_hourly_knowledge
+            self.roi_temp_list = existing_hourly_knowledge
 
             for i in gs.observed_roi(lnglat, map, config):
                 region = str(i['soma_roi_id'])
@@ -281,12 +286,13 @@ class Learning():
                     self.roi_knowledge[region]+=1
                 else:
                     self.roi_knowledge[region]=1
-
-                #Region Knowledge per hour. List them all.
-                if region in self.roi_temp_list:
-                    self.roi_temp_list[region].append(timepoint)
+                
+                #Region Knowledge per hour. Bin them by hour.
+                if region in self.roi_temp_list: 
+                    self.roi_temp_list[region][hour]+=1
                 else:
-                    self.roi_temp_list[region]=[timepoint]
+                    self.roi_temp_list[region]=[0]*24
+                    self.roi_temp_list[region][hour] = 1
 
         print "roi_knowledge = ", self.roi_knowledge
         print "roi_temporal_knowledge = ", self.roi_temp_list
@@ -295,29 +301,18 @@ class Learning():
         for roi, score in self.roi_knowledge.items():
             region_type = gs.type_of_roi(roi, map, config)
 
-            #hour_msg = []           
-            #for i in self.roi_temp_list[roi]:
-            #    hour_msg.append(HourlyKnowledgeMsg(per_hour_knowledge = i))
-
             msg = RegionKnowledgeMsg(soma_roi_id = roi, type = str(region_type), \
-                                     roi_knowledge = score)#, roi_knowledge_hourly = hour_msg)
+                       roi_knowledge = score, roi_knowledge_hourly = self.roi_temp_list[roi])
 
             query = {"soma_roi_id" : roi}
             #print "MESSAGE = \n", msg
             #print "query = ", query
             p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
 
-        for roi in self.roi_temp_list:
-            a = ms.area_of_roi(str(roi), map, config)
-            view_ts, ind = time_wrap(self.roi_temp_list[roi])
-            binned_timepoints = binning(view_ts, n_bins, interval)
-
-            self.roi_temp_know[roi] = [b/a for b in binned_timepoints[:-1]]
-
         print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
         self.knowledge_plot(n_bins)
-        self.methods["roi_knowledge"] = self.roi_knowledge
-        self.methods["roi_knowledge"] = self.roi_temp_know
+        self.methods["roi_total_knowledge"] = self.roi_knowledge
+        self.methods["roi_knowledge"] = self.roi_temp_list
         rospy.loginfo('Done')
         
 

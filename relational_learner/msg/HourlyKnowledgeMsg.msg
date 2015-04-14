@@ -1,1 +1,0 @@
-int32 per_hour_knowledge
