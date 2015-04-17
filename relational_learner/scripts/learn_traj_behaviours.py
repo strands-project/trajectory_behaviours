@@ -73,7 +73,7 @@ def run_all():
 
     for roi in gs.roi_ids(soma_map, soma_config):
         str_roi = "roi_%s" % roi
-        if roi != '12': continue
+        #if roi != '12': continue
 
         print 'ROI: ', gs.type_of_roi(roi, soma_map, soma_config), roi
         query = {"soma_roi_id" : str(roi)} 
@@ -87,6 +87,10 @@ def run_all():
             trajectory_times.append(trajectory["start_time"])
         print "Number of Trajectories in mongodb = %s. \n" % len(all_episodes)
        
+        if len(all_episodes) < 5:
+            print "Not enough episodes in region %s to learn model." % roi
+            continue
+
         #**************************************************************#
         #            Activity Graphs/Code_book/Histograms              #
         #**************************************************************#
@@ -121,7 +125,7 @@ def run_all():
 
         smartThing=Learning(f_space=feature_space, roi=str_roi, vis=False)
         smartThing.kmeans(k=None) #Can pass k, or auto selects min(penalty)
-        
+
 
         #*******************************************************************#
         #                    Temporal Analysis                              #

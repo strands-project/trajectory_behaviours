@@ -108,7 +108,7 @@ class Learning():
         else:
             print "Automatically selecting k"
             #self.visualise = True
-            min_k = 3
+            min_k = 2
             for k in xrange(min_k, len(data)/3):
                 (estimator, penalty) = self.kmeans_util(data, k) 
                 if k==min_k: 

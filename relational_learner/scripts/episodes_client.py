@@ -31,7 +31,7 @@ class EpisodeClient(object):
         if len(msg.trajectories) > 0:
             self.uuid = msg.trajectories[0].uuid
             #self.pose = msg.trajectories[0].trajectory[-1].pose
-            self.ret = self.novelty_client(msg.trajectories[0])
+            self.ret = self.episode_client(msg.trajectories[0])
 
 
 if __name__ == "__main__":
