@@ -16,6 +16,7 @@ class EpisodeClient(object):
     def __init__(self):
         self.ret = None
         self.uuid = ''
+        self.cnt = 0
 
         self.pub = rospy.Publisher("/trajectory_behaviours/episodes", episodesMsg, queue_size=10)
         rospy.Subscriber("/human_trajectories/trajectories/batch", Trajectories, self.callback)
@@ -32,23 +33,17 @@ class EpisodeClient(object):
             self.uuid = msg.trajectories[0].uuid
             #self.pose = msg.trajectories[0].trajectory[-1].pose
             self.ret = self.episode_client(msg.trajectories[0])
-
+            self.pub.publish(self.ret)
+            print "\n", self.cnt, self.uuid
+            self.cnt+=1
 
 if __name__ == "__main__":
     rospy.init_node('episodes_client')
 
     ec = EpisodeClient()
 
-    cnt=0
     while not rospy.is_shutdown():
-        if ec.ret !=None:
-            print "\n", cnt, ec.uuid
-            cnt+=1
-
-            ec.pub.publish(ec.ret)
-
-            rospy.sleep(1)
-
+        pass
     #rospy.spin()
 
 
