@@ -84,7 +84,6 @@ def handle_novelty_detection(req):
     print "params = ", params
     print "tag = ", tag
 
-    print "OR: "
     """4. Activity Graph"""
     ta0=time.time()
 
