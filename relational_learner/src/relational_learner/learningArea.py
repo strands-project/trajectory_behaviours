@@ -168,14 +168,14 @@ class Learning():
 
         (estimator, pen) = self.bench_k_means(KMeans(init='k-means++', n_clusters=k, n_init=10),
                       name="k-means++", data=data, k=k)
-        self.bench_k_means(KMeans(init='random', n_clusters=k, n_init=10),
-                      name="random", data=data, k=k)
+        #self.bench_k_means(KMeans(init='random', n_clusters=k, n_init=10),
+        #              name="random", data=data, k=k)
 
         # in this case the seeding of the centers is deterministic, hence we run the
         # kmeans algorithm only once with n_init=1
-        pca = PCA(n_components=k).fit(data)
-        self.bench_k_means(KMeans(init=pca.components_, n_clusters=k, n_init=1),
-                      name="PCA-based", data=data, k=k)
+        #pca = PCA(n_components=k).fit(data)
+        #self.bench_k_means(KMeans(init=pca.components_, n_clusters=k, n_init=1),
+        #              name="PCA-based", data=data, k=k)
         if  self.visualise: print(40 * '-')
         return (estimator, pen)
 
