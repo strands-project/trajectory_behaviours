@@ -33,9 +33,13 @@ class EpisodeClient(object):
             self.uuid = msg.trajectories[0].uuid
             #self.pose = msg.trajectories[0].trajectory[-1].pose
             self.ret = self.episode_client(msg.trajectories[0])
-            self.pub.publish(self.ret)
-            print "\n", self.cnt, self.uuid
-            self.cnt+=1
+            if self.ret.soma_roi_id != "":
+                self.pub.publish(self.ret)
+                print "\nuuid = %s Episodes uploaded to database" % self.uuid
+                #print self.cnt
+                self.cnt+=1
+            else:
+                print "\nuuid = %s is outside of all soma roi" % self.ret.uuid
 
 if __name__ == "__main__":
     rospy.init_node('episodes_client')

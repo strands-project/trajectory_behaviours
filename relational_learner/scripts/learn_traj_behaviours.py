@@ -88,7 +88,7 @@ def run_all():
         print "Number of Trajectories in mongodb = %s. \n" % len(all_episodes)
        
         if len(all_episodes) < 5:
-            print "Not enough episodes in region %s to learn model." % roi
+            print "Not enough episodes in region %s to learn model. \n" % roi
             continue
 
         #**************************************************************#

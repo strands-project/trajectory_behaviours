@@ -109,7 +109,7 @@ class Learning():
             print "Automatically selecting k"
             #self.visualise = True
             min_k = 2
-            for k in xrange(min_k, len(data)/3):
+            for k in xrange(min_k, int(len(data)/3)):
                 (estimator, penalty) = self.kmeans_util(data, k) 
                 if k==min_k: 
                     (best_e, best_p, best_k) = estimator, penalty, k

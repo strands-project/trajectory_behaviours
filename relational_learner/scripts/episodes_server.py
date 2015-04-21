@@ -100,7 +100,7 @@ def handle_episodes(req):
     """1. Trajectory Message"""
     uuid = req.trajectory.uuid
     start_time = req.trajectory.start_time.secs
-    print "1. Analysing trajectory: %s" %uuid
+    print "\n1. Analysing trajectory: %s" %uuid
 
     (data_dir, config_path) = util.get_path()
     (soma_map, soma_config) = util.get_map_config(config_path)
@@ -114,6 +114,8 @@ def handle_episodes(req):
     two_proxies = TwoProxies(gs, msg_store, soma_map, soma_config)
 
     roi = two_proxies.trajectory_roi(req.trajectory.uuid, trajectory_poses[uuid])
+    if roi == None: return EpisodeServiceResponse(uuid=uuid)
+        
     objects = two_proxies.roi_objects(roi)
     print "\nROI: ", roi
     #print "\n  Objects: ", objects
@@ -169,7 +171,7 @@ def handle_episodes(req):
     print "\nService took: ", time.time()-t0, "  secs."
     print "  Data Reader took: ", tq1-tq0, "  secs."
     print "  Episodes took: ", te1-te0, "  secs."
-    print "  Mongo upload took: ", tm1-tm0, "  secs.\n"
+    print "  Mongo upload took: ", tm1-tm0, "  secs."
 
     return EpisodeServiceResponse(msg.header, msg.uuid, msg.soma_roi_id, msg.soma_map, \
                                   msg.soma_config, msg.start_time, msg.episodes)
