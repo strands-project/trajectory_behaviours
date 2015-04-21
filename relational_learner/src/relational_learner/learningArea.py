@@ -216,7 +216,7 @@ class Learning():
 
     def region_knowledge(self, map, config,\
                         interval=3600.0, period = 86400.0,\
-                        sampling_rate=10):
+                        sampling_rate=10, run_date=''):
         """Returns the ROIs the robot has montitor at each logged robot pose"""
 
         t0 = time.time()
@@ -309,38 +309,40 @@ class Learning():
             p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
 
         print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
-        self.knowledge_plot(n_bins)
+        self.knowledge_plot(n_bins,run_date)
         self.methods["roi_total_knowledge"] = self.roi_knowledge
         self.methods["roi_knowledge"] = self.roi_temp_list
         rospy.loginfo('Done')
         
 
-    def time_plot(timestamps_vec, knowledge, interval=3600, period=86400, \
+    def time_plot(self, timestamps, knowledge, interval=3600, period=86400, \
                         vis=False):
         pc = []
         pf = []
-        for v in timestamps_vec:
+ 
+        for v in timestamps:
             pc.append(self.methods["time_dyn_clst"].query_clusters(v))
             pf.append(self.methods["time_fitting"].query_model(v))
 
-        plt.plot(timestamps_vec,pc,label='dynamic clustering')
-        plt.plot(timestamps_vec,pf,label='GMM fitting')
-        plt.plot(np.arange(0,period+1,interval), knowledge, label='knowledge')
+        plt.plot(timestamps,pc,label='dynamic clustering')
+        plt.plot(timestamps,pf,label='GMM fitting')
+        #plt.plot(np.arange(0,period+1,interval), knowledge, label='knowledge')
+        plt.plot(np.arange(0,period,interval), knowledge, label='knowledge')
         plt.xlabel('samples')
         plt.ylabel('probability')
         plt.legend()
-        plt.savefig('/home/strands/STRANDS/learning/roi12.jpg', \
-                bbox_inches='tight', dpi=100)
+        filename='/tmp/temporal_plot_%s.jpg' % self.roi
+        plt.savefig(filename, bbox_inches='tight', dpi=100)
 
 
 
-    def knowledge_plot(self, n_bins):
+    def knowledge_plot(self, n_bins, run_date):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         z = 0
         cl = ['r', 'g', 'b', 'y']
         regions=[]
-        for (roi, k) in self.roi_temp_know.items():
+        for (roi, k) in self.roi_temp_list.items():
             #print k
             regions.append(roi)
             cls = [cl[z%4]]*n_bins
@@ -352,8 +354,8 @@ class Learning():
         ax.set_xticks([0,3,6,9,12,15,18,21,24])
         ax.set_yticks(range(1,len(regions)+1))
         ax.set_yticklabels(regions)
-        plt.savefig('/home/strands/STRANDS/learning/roi_knowledge.jpg', \
-                bbox_inches='tight', dpi=100)
+        filename='/tmp/roi_knowledge%s.jpg' % run_date
+        plt.savefig(filename, bbox_inches='tight', dpi=100)
 
     
 def robot_view_cone( Px, Py, yaw):

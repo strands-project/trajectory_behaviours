@@ -140,13 +140,13 @@ def run_all():
         #Only learn ROI Knowledge once for all regions. 
         rospy.loginfo('Getting Region Knowledge...')
         if roi_cnt==0: 
-            smartThing.region_knowledge(soma_map, soma_config, sampling_rate = 10)
+            smartThing.region_knowledge(soma_map, soma_config, sampling_rate=10, \
+                                        run_date=date)
             roi_knowledge = smartThing.methods["roi_knowledge"]
         else:
             smartThing.methods["roi_knowledge"] = roi_knowledge
 
-        #print roi_knowledge[roi]
-        #smartThing.time_plot(q.trajectory_times, roi_knowledge[roi], vis=True)
+        smartThing.time_plot(trajectory_times, roi_knowledge[roi], vis=False)
         
         smartThing.save(learning_area)
         print "Learnt models for: "
