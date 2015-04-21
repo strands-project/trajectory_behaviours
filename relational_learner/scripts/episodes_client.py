@@ -46,9 +46,7 @@ if __name__ == "__main__":
 
     ec = EpisodeClient()
 
-    while not rospy.is_shutdown():
-        pass
-    #rospy.spin()
+    rospy.spin()
 
 
 
