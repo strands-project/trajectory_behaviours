@@ -164,7 +164,6 @@ def handle_novelty_detection(req):
     fitting = smartThing.methods['time_fitting']
     dyn_cl = smartThing.methods['time_dyn_clst']
 
-    model = fitting.models[np.argmin(fitting.bic)]
     pc = dyn_cl.query_clusters(start_time%86400)
     pf = fitting.query_model(start_time%86400)
     
