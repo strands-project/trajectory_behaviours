@@ -216,7 +216,7 @@ class Learning():
 
     def region_knowledge(self, map, config,\
                         interval=3600.0, period = 86400.0,\
-                        sampling_rate=10, run_date=''):
+                        sampling_rate=10):
         """Returns the ROIs the robot has montitor at each logged robot pose"""
 
         t0 = time.time()
@@ -309,7 +309,7 @@ class Learning():
             p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
 
         print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
-        self.knowledge_plot(n_bins,run_date)
+        self.knowledge_plot(n_bins)
         self.methods["roi_total_knowledge"] = self.roi_knowledge
         self.methods["roi_knowledge"] = self.roi_temp_list
         rospy.loginfo('Done')
@@ -336,7 +336,7 @@ class Learning():
 
 
 
-    def knowledge_plot(self, n_bins, run_date):
+    def knowledge_plot(self, n_bins):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         z = 0
@@ -354,7 +354,8 @@ class Learning():
         ax.set_xticks([0,3,6,9,12,15,18,21,24])
         ax.set_yticks(range(1,len(regions)+1))
         ax.set_yticklabels(regions)
-        filename='/tmp/roi_knowledge%s.jpg' % run_date
+        date = time.strftime("%x").replace("/","_")
+        filename='/tmp/roi_knowledge__%s.jpg' % date
         plt.savefig(filename, bbox_inches='tight', dpi=100)
 
     
