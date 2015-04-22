@@ -208,10 +208,9 @@ class Learning():
         timestamps_vec = time_wrap(time_points)[0]    
         fitting = activity_time(timestamps_vec, interval=interval)
 
-        #plot_options: title, hist_colour, curve_colour
-        #stop = fitting.display_indexes(['trajectories','g','b'],dyn_cl,[]) 
         self.methods["time_dyn_clst"] = dyn_cl
         self.methods["time_fitting"] = fitting
+        self.temporal_plot(vis=False)
         rospy.loginfo('Done\n')
 
     def region_knowledge(self, map, config,\
@@ -315,20 +314,28 @@ class Learning():
         rospy.loginfo('Done')
         
 
-    def time_plot(self, timestamps, knowledge, interval=3600, period=86400, \
+    def temporal_plot(self, plot_interval=900.0, period=86400, \
                         vis=False):
         pc = []
         pf = []
- 
+        #query model at these points to generate graph:
+        timestamps = np.arange(0,period,plot_interval) 
         for v in timestamps:
             pc.append(self.methods["time_dyn_clst"].query_clusters(v))
             pf.append(self.methods["time_fitting"].query_model(v))
+            
+        plot_vec = [t/3600.0 for t in timestamps]
+        fig = plt.figure()
+        t_ax = fig.add_subplot(111)
+        width=0.01
+        plt.bar(plot_vec,pc,width, color='r', edgecolor='r',\
+              label='dynamic clustering')
+        plt.plot(plot_vec,pf,label='GMM fitting')
 
-        plt.plot(timestamps,pc,label='dynamic clustering')
-        plt.plot(timestamps,pf,label='GMM fitting')
-        #plt.plot(np.arange(0,period+1,interval), knowledge, label='knowledge')
-        plt.plot(np.arange(0,period,interval), knowledge, label='knowledge')
-        plt.xlabel('samples')
+        plt.xlim([0,24])
+        t_ax.set_xticks(np.arange(0,24))
+
+        plt.xlabel('time of day')
         plt.ylabel('probability')
         plt.legend()
         filename='/tmp/temporal_plot_%s.jpg' % self.roi

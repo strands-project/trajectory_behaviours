@@ -235,7 +235,8 @@ class dynamic_clusters:
        
     def query_clusters(self,t):
         p = np.min([abs(c-t)/(2*l) for (c,l) in zip(self.C,self.L)])
-        return p
+        if p > 1: return 0
+        else: return 1-p
          
 #################################  
 

@@ -144,9 +144,7 @@ def run_all():
             roi_knowledge = smartThing.methods["roi_knowledge"]
         else:
             smartThing.methods["roi_knowledge"] = roi_knowledge
-
-        smartThing.time_plot(trajectory_times, roi_knowledge[roi], vis=False)
-        
+         
         smartThing.save(learning_area)
         print "Learnt models for: "
         for key in smartThing.methods:
