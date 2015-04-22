@@ -26,7 +26,7 @@ import novelTrajectories.config_utils as util
 import relational_learner.obtain_trajectories as ot
 from relational_learner.graphs_handler import *
 from novelTrajectories.traj_data_reader import *
-from relational_learner.learningArea import Learning
+from relational_learner.learningArea import *
 
 
 def Mongodb_to_list(res):
@@ -51,26 +51,26 @@ def Mongodb_to_list(res):
 
 
 def run_all():
-    """
-       Change this to have multiple methods
-       each method can then me interupted in OfflineLearning.action
-    """
+
     (directories, config_path, input_data, date) = util.get_learning_config()
     (data_dir, qsr, eps, activity_graph_dir, learning_area) = directories
     (soma_map, soma_config) = util.get_map_config(config_path)
-
     gs = GeoSpatialStoreProxy('geospatial_store','soma')
     msg_store = GeoSpatialStoreProxy('message_store', 'relational_episodes')
 
-    rospy.loginfo("0. Running ROI query from message_store")   
-    
+
+    #*******************************************************************#
+    #                  Regions of Interest Knowledge                    #
+    #*******************************************************************#
+    rospy.loginfo('Getting Region Knowledge from roslog...') 
+    roi_knowledge, roi_temp_list = region_knowledge(soma_map, soma_config, \
+                                                    sampling_rate=10)
+   
   
     #*******************************************************************#
     #                  Obtain Episodes in ROI                           #
     #*******************************************************************#
-    roi_timepoints = {}
-    roi_cnt = 0
-
+    rospy.loginfo("0. Running ROI query from message_store")   
     for roi in gs.roi_ids(soma_map, soma_config):
         str_roi = "roi_%s" % roi
         #if roi != '12': continue
@@ -134,23 +134,15 @@ def run_all():
         #print "traj times = ", trajectory_times, "\n"
         smartThing.time_analysis(trajectory_times)
 
-        #*******************************************************************#
-        #                    Region Knowledge                               #
-        #*******************************************************************#
-        #Only learn ROI Knowledge once for all regions. 
-        rospy.loginfo('Getting Region Knowledge...')
-        if roi_cnt==0: 
-            smartThing.region_knowledge(soma_map, soma_config, sampling_rate=10)
-            roi_knowledge = smartThing.methods["roi_knowledge"]
-        else:
-            smartThing.methods["roi_knowledge"] = roi_knowledge
-         
+           
+        #Add the region knowledge to smartThing
+        smartThing.methods["roi_knowledge"] = roi_knowledge[roi]
+        smartThing.methods["roi_temp_list"] = roi_temp_list[roi]
+
         smartThing.save(learning_area)
         print "Learnt models for: "
         for key in smartThing.methods:
             print "    ", key
-  
-        roi_cnt+=1
 
     print "COMPLETED LEARNING PHASE"
     return

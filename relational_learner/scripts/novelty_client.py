@@ -47,20 +47,22 @@ class NoveltyScoreLogic(object):
         self.temp_scores = {}
         self.published_uuids = []
 
-
     def test(self, uuid, ret):
         """Tests whether UUID is a novel trajectory"""
-        self.uuid = uuid         
+        self.uuid = uuid
+        threshold = 0.05 #probability of sample belonging to temporal model
+
         spatial_novelty = ret.spatial_dist
         temp1 = ret.temporal_nov[0]
         temp2 = ret.temporal_nov[1]
 
-        if spatial_novelty > 0: self.msg = "  >>> spatial novelty %s" % spatial_novelty
-        elif ret.roi_knowledge > 0.5:
-            if temp1 < 0.05: self.msg = "  >>> temporal novelty1"
-            if temp2 < 0.05: self.msg = "  >>> temporal novelty2"
-            self.msg=""
-        else: self.msg = ""
+        self.msg=""
+        if spatial_novelty > 0: self.msg = ">>> spatial novelty %s" % spatial_novelty
+        
+        #region knowledge must be > 1 minute
+        if ret.roi_knowledge > 60: 
+            if temp1 < threshold: self.msg = self.msg + "  >>> temporal novelty %s"  % temp1 spatial_novelty
+            if temp2 < threshold: self.msg = self.msg + "  >>> temporal novelty %s" % temp2
 
         if self.msg != "":
             self.published_uuids.append(uuid)
@@ -74,27 +76,4 @@ if __name__ == "__main__":
      
     nc = NoveltyClient()
     rospy.spin()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

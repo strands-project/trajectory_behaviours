@@ -213,107 +213,6 @@ class Learning():
         self.temporal_plot(vis=False)
         rospy.loginfo('Done\n')
 
-    def region_knowledge(self, map, config,\
-                        interval=3600.0, period = 86400.0,\
-                        sampling_rate=10):
-        """Returns the ROIs the robot has montitor at each logged robot pose"""
-
-        t0 = time.time()
-        n_bins = int(period/interval)
-
-        ##Get info stored in Mongodb Region Knowledge Store
-        ks = RegionKnowledgeImporter()
-        existing_knowledge = {}
-        existing_hourly_knowledge = {}
-
-        query = {"soma_roi_id"  : {"$exists": "true"}, 
-                "roi_knowledge" : {"$exists": "true"}}
-        for region in ks.find(query):
-            existing_knowledge[str(region["soma_roi_id"])] = int(region["roi_knowledge"])
-            existing_hourly_knowledge[str(region["soma_roi_id"])] = region["roi_knowledge_hourly"]
-
-        print "existing knowledge = ", existing_knowledge
-        print "existing hourly knowledge = ", existing_hourly_knowledge
-
-        self.roi_knowledge = existing_knowledge
-        self.roi_temp_list = existing_hourly_knowledge
-
-        ##Query the Robot Poses from roslog
-        gs = GeoSpatialStoreProxy('geospatial_store','soma')
-        ms = GeoSpatialStoreProxy('message_store','soma_roi')
-        roslog = GeoSpatialStoreProxy('roslog','robot_pose')
-
-        query = {"_id": {"$exists": "true"}}
-        print "sampling rate =", sampling_rate
-
-        ##Loop through the robot poses for the day
-        for cnt, p in enumerate(roslog.find(query)):
-            if cnt % sampling_rate != 0: continue   #Take 1/10 of the roslog poses
-            timepoint = cnt/sampling_rate
-
-            #print p
-            pose = p['position']
-            ro, pi, yaw = euler_from_quaternion([0, 0, \
-                    p['orientation']['z'], p['orientation']['w'] ])
-
-            inserted_at = p['_meta']['inserted_at']
-            hour = inserted_at.time().hour
-
-            coords = robot_view_cone(pose['x'], pose['y'], yaw)
-            lnglat = []
-            for pt in coords:
-                lnglat.append(gs.coords_to_lnglat(pt[0], pt[1]))
-            #add first points again to make it a complete polygon
-            lnglat.append(gs.coords_to_lnglat(coords[0][0], coords[0][1]))
-
-            ##This is the viewcone coords of looking at the Library, roi=20 (TEST)
-            #lnglat =[[0.0001383168733184448, 
-            #        5.836986395024724e-05], 
-            #    [6.036547989651808e-05, 
-            #        6.102209576397399e-05], 
-            #    [5.951977148299648e-05, 
-            #        0.0001788888702378699], 
-            #    [0.0001383168733184448, 
-            #        5.836986395024724e-05]]
-
-            for i in gs.observed_roi(lnglat, map, config):
-                region = str(i['soma_roi_id'])
-
-                #Region Knowledge
-                if region in self.roi_knowledge:
-                    self.roi_knowledge[region]+=1
-                else:
-                    self.roi_knowledge[region]=1
-                
-                #Region Knowledge per hour. Bin them by hour.
-                if region in self.roi_temp_list: 
-                    self.roi_temp_list[region][hour]+=1
-                else:
-                    self.roi_temp_list[region]=[0]*24
-                    self.roi_temp_list[region][hour] = 1
-
-        print "roi_knowledge = ", self.roi_knowledge
-        print "roi_temporal_knowledge = ", self.roi_temp_list
-
-        #update mongodb (as the roslog/robot_pose data is removed at the end of the day)
-        for roi, score in self.roi_knowledge.items():
-            region_type = gs.type_of_roi(roi, map, config)
-
-            msg = RegionKnowledgeMsg(soma_roi_id = roi, type = str(region_type), \
-                       roi_knowledge = score, roi_knowledge_hourly = self.roi_temp_list[roi])
-
-            query = {"soma_roi_id" : roi}
-            #print "MESSAGE = \n", msg
-            #print "query = ", query
-            p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
-
-        print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
-        self.knowledge_plot(n_bins)
-        self.methods["roi_total_knowledge"] = self.roi_knowledge
-        self.methods["roi_knowledge"] = self.roi_temp_list
-        rospy.loginfo('Done')
-        
-
     def temporal_plot(self, plot_interval=900.0, period=86400, \
                         vis=False):
         pc = []
@@ -343,27 +242,114 @@ class Learning():
 
 
 
-    def knowledge_plot(self, n_bins):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        z = 0
-        cl = ['r', 'g', 'b', 'y']
-        regions=[]
-        for (roi, k) in self.roi_temp_list.items():
-            #print k
-            regions.append(roi)
-            cls = [cl[z%4]]*n_bins
-            ax.bar(range(n_bins),k, zs=z, zdir='y', color=cls, alpha = 0.8)
-            z = z+1
-        ax.set_ylabel("ROI")
-        ax.set_xlabel("time")
-        ax.set_zlabel("observation (secs)/area (m^2)")
-        ax.set_xticks([0,3,6,9,12,15,18,21,24])
-        ax.set_yticks(range(1,len(regions)+1))
-        ax.set_yticklabels(regions)
-        date = time.strftime("%x").replace("/","_")
-        filename='/tmp/roi_knowledge__%s.jpg' % date
-        plt.savefig(filename, bbox_inches='tight', dpi=100)
+def region_knowledge(map, config, interval=3600.0, period = 86400.0,\
+                    sampling_rate=10):
+
+    """Returns the ROIs the robot has montitor at each logged robot pose"""
+    t0 = time.time()
+    n_bins = int(period/interval)
+
+    ##Get info stored in Mongodb Region Knowledge Store
+    ks = RegionKnowledgeImporter()
+    roi_knowledge = {}
+    roi_temp_list = {}
+
+    query = {"soma_roi_id"  : {"$exists": "true"}, 
+            "roi_knowledge" : {"$exists": "true"}}
+    for region in ks.find(query):
+        roi_knowledge[str(region["soma_roi_id"])] = int(region["roi_knowledge"])
+        roi_temp_list[str(region["soma_roi_id"])] = region["roi_knowledge_hourly"]
+
+    print "existing knowledge = ", roi_knowledge
+    print "existing hourly knowledge = ", roi_temp_list
+
+    ##Query the Robot Poses from roslog
+    gs = GeoSpatialStoreProxy('geospatial_store','soma')
+    ms = GeoSpatialStoreProxy('message_store','soma_roi')
+    roslog = GeoSpatialStoreProxy('roslog','robot_pose')
+
+    query = {"_id": {"$exists": "true"}}
+    print "sampling rate =", sampling_rate
+
+    ##Loop through the robot poses for the day
+    for cnt, p in enumerate(roslog.find(query)):
+        if cnt % sampling_rate != 0: continue   #Take 1/10 of the roslog poses
+        timepoint = cnt/sampling_rate
+
+        #print p
+        pose = p['position']
+        ro, pi, yaw = euler_from_quaternion([0, 0, \
+                p['orientation']['z'], p['orientation']['w'] ])
+
+        inserted_at = p['_meta']['inserted_at']
+        hour = inserted_at.time().hour
+
+        coords = robot_view_cone(pose['x'], pose['y'], yaw)
+        lnglat = []
+        for pt in coords:
+            lnglat.append(gs.coords_to_lnglat(pt[0], pt[1]))
+        #add first points again to make it a complete polygon
+        lnglat.append(gs.coords_to_lnglat(coords[0][0], coords[0][1]))
+
+        for i in gs.observed_roi(lnglat, map, config):
+            region = str(i['soma_roi_id'])
+
+            #Region Knowledge
+            if region in roi_knowledge:
+                roi_knowledge[region]+=1
+            else:
+                roi_knowledge[region]=1
+                
+            #Region Knowledge per hour. Bin them by hour.
+            if region in roi_temp_list: 
+                roi_temp_list[region][hour]+=1
+            else:
+                roi_temp_list[region]=[0]*24
+                roi_temp_list[region][hour] = 1
+
+    print "roi_knowledge = ", roi_knowledge
+    print "roi_temporal_knowledge = ", roi_temp_list
+
+    #update mongodb (as the roslog/robot_pose data is removed at the end of the day)
+    for roi, score in roi_knowledge.items():
+        region_type = gs.type_of_roi(roi, map, config)
+
+        msg = RegionKnowledgeMsg(soma_roi_id = roi, type = str(region_type), \
+                   roi_knowledge = score, roi_knowledge_hourly = roi_temp_list[roi])
+
+        query = {"soma_roi_id" : roi}
+        #print "MESSAGE = \n", msg
+        #print "query = ", query
+        p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
+
+    print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
+    knowledge_plot(roi_temp_list, n_bins)
+
+    rospy.loginfo('Done')
+    return roi_knowledge, roi_temp_list
+
+
+def knowledge_plot(roi_temp_list, n_bins):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    z = 0
+    cl = ['r', 'g', 'b', 'y']
+    regions=[]
+    for (roi, k) in roi_temp_list.items():
+        #print k
+        regions.append(roi)
+        cls = [cl[z%4]]*n_bins
+        ax.bar(range(n_bins),k, zs=z, zdir='y', color=cls, alpha = 0.8)
+        z = z+1
+    ax.set_ylabel("ROI")
+    ax.set_xlabel("time")
+    ax.set_zlabel("observation (secs)/area (m^2)")
+    ax.set_xticks([0,3,6,9,12,15,18,21,24])
+    ax.set_yticks(range(1,len(regions)+1))
+    ax.set_yticklabels(regions)
+    date = time.strftime("%x").replace("/","_")
+    filename='/tmp/roi_knowledge__%s.jpg' % date
+    plt.savefig(filename, bbox_inches='tight', dpi=100)
 
     
 def robot_view_cone( Px, Py, yaw):
