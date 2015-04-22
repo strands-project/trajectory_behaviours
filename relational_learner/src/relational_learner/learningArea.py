@@ -236,6 +236,9 @@ class Learning():
         print "existing knowledge = ", existing_knowledge
         print "existing hourly knowledge = ", existing_hourly_knowledge
 
+        self.roi_knowledge = existing_knowledge
+        self.roi_temp_list = existing_hourly_knowledge
+
         ##Query the Robot Poses from roslog
         gs = GeoSpatialStoreProxy('geospatial_store','soma')
         ms = GeoSpatialStoreProxy('message_store','soma_roi')
@@ -273,9 +276,6 @@ class Learning():
             #        0.0001788888702378699], 
             #    [0.0001383168733184448, 
             #        5.836986395024724e-05]]
-
-            self.roi_knowledge = existing_knowledge
-            self.roi_temp_list = existing_hourly_knowledge
 
             for i in gs.observed_roi(lnglat, map, config):
                 region = str(i['soma_roi_id'])
