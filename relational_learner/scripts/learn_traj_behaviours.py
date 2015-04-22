@@ -136,8 +136,12 @@ def run_all():
 
            
         #Add the region knowledge to smartThing
-        smartThing.methods["roi_knowledge"] = roi_knowledge[roi]
-        smartThing.methods["roi_temp_list"] = roi_temp_list[roi]
+        try:
+            smartThing.methods["roi_knowledge"] = roi_knowledge[roi]
+            smartThing.methods["roi_temp_list"] = roi_temp_list[roi]
+        except KeyError:
+            smartThing.methods["roi_knowledge"] = 0
+            smartThing.methods["roi_temp_list"] = [0]*24
 
         smartThing.save(learning_area)
         print "Learnt models for: "
