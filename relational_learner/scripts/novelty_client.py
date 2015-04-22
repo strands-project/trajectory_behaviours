@@ -61,7 +61,7 @@ class NoveltyScoreLogic(object):
         
         #region knowledge must be > 1 minute
         if ret.roi_knowledge > 60: 
-            if temp1 < threshold: self.msg = self.msg + "  >>> temporal novelty %s"  % temp1 spatial_novelty
+            if temp1 < threshold: self.msg = self.msg + "  >>> temporal novelty %s"  % temp1
             if temp2 < threshold: self.msg = self.msg + "  >>> temporal novelty %s" % temp2
 
         if self.msg != "":

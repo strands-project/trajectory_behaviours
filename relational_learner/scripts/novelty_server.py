@@ -97,7 +97,7 @@ def handle_novelty_detection(req):
     print "\n  MODELS LOADED :"
     file_ = os.path.join(data_dir + 'learning/roi_' + roi + '_smartThing.p')
     smartThing=la.Learning(load_from_file=file_)
-    #print smartThing.methods
+    if smartThing.flag == False: return NoveltyDetectionResponse()
 
     print "code book = ", smartThing.code_book
 

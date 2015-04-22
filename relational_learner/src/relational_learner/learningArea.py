@@ -84,16 +84,18 @@ class Learning():
         try:
             with open(filename, "rb") as f:
                 foo = pickle.load(f)
+            self.roi = foo["ROI"]
+            self.methods = foo["learning_methods"]
+            self.code_book = foo["code_book"]
+            self.graphlet_book = foo["graphlet_book"]
+            self.feature_space = foo["feature_space"]
+            self.flag = True
+            print "Loaded: " + repr(self.methods.keys())
+            print("success")
+
         except:
             print "Loading of learnt model failed. Cannot test novelty)."
-
-        self.roi = foo["ROI"]
-        self.methods = foo["learning_methods"]
-        self.code_book = foo["code_book"]
-        self.graphlet_book = foo["graphlet_book"]
-        self.feature_space = foo["feature_space"]
-        print "Loaded: " + repr(self.methods.keys())
-        print("success")
+            self.flag = False
 
 
     def kmeans(self, k=None):
