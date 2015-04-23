@@ -111,7 +111,8 @@ class Learning():
             print "Automatically selecting k"
             #self.visualise = True
             min_k = 2
-            for k in xrange(min_k, int(len(data)/3)):
+            #loop from k=2 until a third of the datapoints
+            for k in xrange(min_k, int(len(data)/3)+1):
                 (estimator, penalty) = self.kmeans_util(data, k) 
                 if k==min_k: 
                     (best_e, best_p, best_k) = estimator, penalty, k

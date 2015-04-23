@@ -87,7 +87,7 @@ def run_all(turn_on_plotting=False):
             trajectory_times.append(trajectory["start_time"])
         print "Number of Trajectories in mongodb = %s. \n" % len(all_episodes)
        
-        if len(all_episodes) < 5:
+        if len(all_episodes) < 12:
             print "Not enough episodes in region %s to learn model. \n" % roi
             continue
 
@@ -156,8 +156,8 @@ def run_all(turn_on_plotting=False):
 
 class Offline_Learning(object):
 
-    def learn(self):
-    	r = run_all(turn_on_plotting=True)
+    def learn(self, turn_on_plotting=True):
+    	r = run_all(turn_on_plotting)
 	
 
 
