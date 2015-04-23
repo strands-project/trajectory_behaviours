@@ -50,7 +50,7 @@ def Mongodb_to_list(res):
     return ep_list
 
 
-def run_all():
+def run_all(turn_on_plotting=False):
 
     (directories, config_path, input_data, date) = util.get_learning_config()
     (data_dir, qsr, eps, activity_graph_dir, learning_area) = directories
@@ -64,7 +64,7 @@ def run_all():
     #*******************************************************************#
     rospy.loginfo('Getting Region Knowledge from roslog...') 
     roi_knowledge, roi_temp_list = region_knowledge(soma_map, soma_config, \
-                                                    sampling_rate=10)
+                                                 sampling_rate=10, plot=turn_on_plotting)
    
   
     #*******************************************************************#
@@ -132,7 +132,7 @@ def run_all():
         #*******************************************************************#
         rospy.loginfo('Learning Temporal Measures')
         #print "traj times = ", trajectory_times, "\n"
-        smartThing.time_analysis(trajectory_times)
+        smartThing.time_analysis(trajectory_times, plot=turn_on_plotting)
 
            
         #Add the region knowledge to smartThing
@@ -157,7 +157,7 @@ def run_all():
 class Offline_Learning(object):
 
     def learn(self):
-    	r = run_all()
+    	r = run_all(turn_on_plotting=True)
 	
 
 

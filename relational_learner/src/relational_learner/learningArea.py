@@ -195,7 +195,7 @@ class Learning():
 
          
 
-    def time_analysis(self, time_points, interval=1800):
+    def time_analysis(self, time_points, plot=False, interval=1800):
         """Number of seconds in a day = 86400"""
 
         first_day = int(min(time_points)/86400)
@@ -212,7 +212,7 @@ class Learning():
 
         self.methods["time_dyn_clst"] = dyn_cl
         self.methods["time_fitting"] = fitting
-        self.temporal_plot(vis=False)
+        if plot: self.temporal_plot(vis=False)
         rospy.loginfo('Done\n')
 
     def temporal_plot(self, plot_interval=900.0, period=86400, \
@@ -245,7 +245,7 @@ class Learning():
 
 
 def region_knowledge(map, config, interval=3600.0, period = 86400.0,\
-                    sampling_rate=10):
+                    sampling_rate=10, plot=False):
 
     """Returns the ROIs the robot has montitor at each logged robot pose"""
     t0 = time.time()
@@ -325,7 +325,7 @@ def region_knowledge(map, config, interval=3600.0, period = 86400.0,\
         p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
 
     print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
-    knowledge_plot(roi_temp_list, n_bins)
+    if plot: knowledge_plot(roi_temp_list, n_bins)
 
     rospy.loginfo('Done')
     return roi_knowledge, roi_temp_list
