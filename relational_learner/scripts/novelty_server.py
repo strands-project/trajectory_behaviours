@@ -84,7 +84,6 @@ def handle_novelty_detection(req):
     print "params = ", params
     print "tag = ", tag
 
-    print "OR: "
     """4. Activity Graph"""
     ta0=time.time()
 
@@ -98,7 +97,7 @@ def handle_novelty_detection(req):
     print "\n  MODELS LOADED :"
     file_ = os.path.join(data_dir + 'learning/roi_' + roi + '_smartThing.p')
     smartThing=la.Learning(load_from_file=file_)
-    #print smartThing.methods
+    if smartThing.flag == False: return NoveltyDetectionResponse()
 
     print "code book = ", smartThing.code_book
 
@@ -165,7 +164,6 @@ def handle_novelty_detection(req):
     fitting = smartThing.methods['time_fitting']
     dyn_cl = smartThing.methods['time_dyn_clst']
 
-    model = fitting.models[np.argmin(fitting.bic)]
     pc = dyn_cl.query_clusters(start_time%86400)
     pf = fitting.query_model(start_time%86400)
     
@@ -173,18 +171,21 @@ def handle_novelty_detection(req):
     print "PF = ", pf
 
     """9. ROI Knowledge"""
-    if roi in smartThing.methods['roi_knowledge']:
-        knowledge = smartThing.methods['roi_knowledge'][roi]
-        print "Region/Time Knowledge = ", knowledge
+    try:
+        region_knowledge = smartThing.methods['roi_knowledge']
+        temporal_knowledge = smartThing.methods['roi_temp_list']
+        print "Region Knowledge Score = ", region_knowledge
+        print "Hourly score = ", region_knowledge
+
         t = datetime.fromtimestamp(start_time)
         print "Date/Time = ", t
+        th = temporal_knowledge[t.hour]
+        print "Knowledge per hour = ", th
 
-        th = knowledge[t.hour]
-        print "Region knowledge = ", th
-    else:
-        print "No Region knowledge"
+    except KeyError:
+        print "No Region knowledge in `region_knowledge` db"
         th = 0
-
+ 
     print "\n Service took: ", time.time()-t0, "  secs."
     print "  AG took: ", ta1-ta0, "  secs."
     #print "  Mongo upload took: ", tm1-tm0, "  secs."

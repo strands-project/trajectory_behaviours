@@ -6,16 +6,15 @@ from std_msgs.msg import String
 from relational_learner.srv import *
 from relational_learner.msg import *
 
-global flag
-flag = 0
-
 class NoveltyClient(object):
     
     def __init__(self):
         self.msg = None
         self.ret = None
         self.uuid = ''
-        
+        self.novlogic = NoveltyScoreLogic()
+        self.cnt=0
+
         self.pub = rospy.Publisher("/trajectory_behaviours/novel_trajectory", String, queue_size=10)
         rospy.Subscriber("/trajectory_behaviours/episodes", episodesMsg, self.callback)
 
@@ -27,15 +26,19 @@ class NoveltyClient(object):
         return ret
 
     def callback(self, msg):
-        global flag
     
-        if flag == 0:
-            if len(msg.uuid) > 0:
+        if len(msg.uuid) > 0:
+            self.uuid = msg.uuid
+            self.roi = msg.soma_roi_id
+            self.ret = self.novelty_client(msg)
 
-                self.uuid = msg.uuid
-                self.roi = msg.soma_roi_id
-                self.ret = self.novelty_client(msg)
-            flag = 1
+            print "\n", self.cnt, self.uuid  
+            print self.ret   
+            self.cnt+=1 
+
+            if self.novlogic.test(self.uuid, self.ret): 
+                self.pub.publish(self.uuid)
+                print self.novlogic.msg
 
 
 class NoveltyScoreLogic(object):
@@ -44,20 +47,22 @@ class NoveltyScoreLogic(object):
         self.temp_scores = {}
         self.published_uuids = []
 
-
     def test(self, uuid, ret):
         """Tests whether UUID is a novel trajectory"""
-        self.uuid = uuid         
+        self.uuid = uuid
+        threshold = 0.05 #probability of sample belonging to temporal model
+
         spatial_novelty = ret.spatial_dist
         temp1 = ret.temporal_nov[0]
         temp2 = ret.temporal_nov[1]
 
-        if spatial_novelty > 0: self.msg = "  >>> spatial novelty %s" % spatial_novelty
-        elif ret.roi_knowledge > 0.5:
-            if temp1 < 0.05: self.msg = "  >>> temporal novelty1"
-            if temp2 < 0.05: self.msg = "  >>> temporal novelty2"
-            self.msg=""
-        else: self.msg = ""
+        self.msg=""
+        if spatial_novelty > 0: self.msg = ">>> spatial novelty %s" % spatial_novelty
+        
+        #region knowledge must be > 1 minute
+        if ret.roi_knowledge > 60: 
+            if temp1 < threshold: self.msg = self.msg + "  >>> temporal novelty %s"  % temp1
+            if temp2 < threshold: self.msg = self.msg + "  >>> temporal novelty %s" % temp2
 
         if self.msg != "":
             self.published_uuids.append(uuid)
@@ -68,47 +73,7 @@ class NoveltyScoreLogic(object):
 if __name__ == "__main__":
     rospy.init_node('novelty_client')
     print "novelty client running..."
-
-    
-    novlogic = NoveltyScoreLogic()
+     
     nc = NoveltyClient()
-    cnt=0
-    while not rospy.is_shutdown():
-        if flag == 0: continue
-
-        if nc.ret !=None:
-            print "\n", cnt, nc.uuid
-            cnt+=1
-            print nc.ret
-  
-            if novlogic.test(nc.uuid, nc.ret): 
-                nc.pub.publish(nc.uuid)
-            print novlogic.msg
-            #rospy.sleep(1)
-
-        flag = 0
     rospy.spin()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

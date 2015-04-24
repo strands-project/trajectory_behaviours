@@ -84,16 +84,18 @@ class Learning():
         try:
             with open(filename, "rb") as f:
                 foo = pickle.load(f)
+            self.roi = foo["ROI"]
+            self.methods = foo["learning_methods"]
+            self.code_book = foo["code_book"]
+            self.graphlet_book = foo["graphlet_book"]
+            self.feature_space = foo["feature_space"]
+            self.flag = True
+            print "Loaded: " + repr(self.methods.keys())
+            print("success")
+
         except:
             print "Loading of learnt model failed. Cannot test novelty)."
-
-        self.roi = foo["ROI"]
-        self.methods = foo["learning_methods"]
-        self.code_book = foo["code_book"]
-        self.graphlet_book = foo["graphlet_book"]
-        self.feature_space = foo["feature_space"]
-        print "Loaded: " + repr(self.methods.keys())
-        print("success")
+            self.flag = False
 
 
     def kmeans(self, k=None):
@@ -108,8 +110,9 @@ class Learning():
         else:
             print "Automatically selecting k"
             #self.visualise = True
-            min_k = 3
-            for k in xrange(min_k, len(data)/3):
+            min_k = 2
+            #loop from k=2 until a third of the datapoints
+            for k in xrange(min_k, int(len(data)/3)+1):
                 (estimator, penalty) = self.kmeans_util(data, k) 
                 if k==min_k: 
                     (best_e, best_p, best_k) = estimator, penalty, k
@@ -168,14 +171,14 @@ class Learning():
 
         (estimator, pen) = self.bench_k_means(KMeans(init='k-means++', n_clusters=k, n_init=10),
                       name="k-means++", data=data, k=k)
-        self.bench_k_means(KMeans(init='random', n_clusters=k, n_init=10),
-                      name="random", data=data, k=k)
+        #self.bench_k_means(KMeans(init='random', n_clusters=k, n_init=10),
+        #              name="random", data=data, k=k)
 
         # in this case the seeding of the centers is deterministic, hence we run the
         # kmeans algorithm only once with n_init=1
-        pca = PCA(n_components=k).fit(data)
-        self.bench_k_means(KMeans(init=pca.components_, n_clusters=k, n_init=1),
-                      name="PCA-based", data=data, k=k)
+        #pca = PCA(n_components=k).fit(data)
+        #self.bench_k_means(KMeans(init=pca.components_, n_clusters=k, n_init=1),
+        #              name="PCA-based", data=data, k=k)
         if  self.visualise: print(40 * '-')
         return (estimator, pen)
 
@@ -193,7 +196,7 @@ class Learning():
 
          
 
-    def time_analysis(self, time_points, interval=1800):
+    def time_analysis(self, time_points, plot=False, interval=1800):
         """Number of seconds in a day = 86400"""
 
         first_day = int(min(time_points)/86400)
@@ -208,152 +211,148 @@ class Learning():
         timestamps_vec = time_wrap(time_points)[0]    
         fitting = activity_time(timestamps_vec, interval=interval)
 
-        #plot_options: title, hist_colour, curve_colour
-        #stop = fitting.display_indexes(['trajectories','g','b'],dyn_cl,[]) 
         self.methods["time_dyn_clst"] = dyn_cl
         self.methods["time_fitting"] = fitting
+        if plot: self.temporal_plot(vis=False)
         rospy.loginfo('Done\n')
 
-    def region_knowledge(self, map, config,\
-                        interval=3600.0, period = 86400.0,\
-                        sampling_rate=10):
-        """Returns the ROIs the robot has montitor at each logged robot pose"""
-
-        t0 = time.time()
-        n_bins = int(period/interval)
-
-        ##Get info stored in Mongodb Region Knowledge Store
-        ks = RegionKnowledgeImporter()
-        existing_knowledge = {}
-        existing_hourly_knowledge = {}
-
-        query = {"soma_roi_id"  : {"$exists": "true"}, 
-                "roi_knowledge" : {"$exists": "true"}}
-        for region in ks.find(query):
-            existing_knowledge[str(region["soma_roi_id"])] = int(region["roi_knowledge"])
-            existing_hourly_knowledge[str(region["soma_roi_id"])] = region["roi_knowledge_hourly"]
-
-        print "existing knowledge = ", existing_knowledge
-        print "existing hourly knowledge = ", existing_hourly_knowledge
-
-        ##Query the Robot Poses from roslog
-        gs = GeoSpatialStoreProxy('geospatial_store','soma')
-        ms = GeoSpatialStoreProxy('message_store','soma_roi')
-        roslog = GeoSpatialStoreProxy('roslog','robot_pose')
-
-        query = {"_id": {"$exists": "true"}}
-        print "sampling rate =", sampling_rate
-
-        ##Loop through the robot poses for the day
-        for cnt, p in enumerate(roslog.find(query)):
-            if cnt % sampling_rate != 0: continue   #Take 1/10 of the roslog poses
-            timepoint = cnt/sampling_rate
-
-            #print p
-            pose = p['position']
-            ro, pi, yaw = euler_from_quaternion([0, 0, \
-                    p['orientation']['z'], p['orientation']['w'] ])
-
-            inserted_at = p['_meta']['inserted_at']
-            hour = inserted_at.time().hour
-
-            coords = robot_view_cone(pose['x'], pose['y'], yaw)
-            lnglat = []
-            for pt in coords:
-                lnglat.append(gs.coords_to_lnglat(pt[0], pt[1]))
-            #add first points again to make it a complete polygon
-            lnglat.append(gs.coords_to_lnglat(coords[0][0], coords[0][1]))
-
-            ##This is the viewcone coords of looking at the Library, roi=20 (TEST)
-            #lnglat =[[0.0001383168733184448, 
-            #        5.836986395024724e-05], 
-            #    [6.036547989651808e-05, 
-            #        6.102209576397399e-05], 
-            #    [5.951977148299648e-05, 
-            #        0.0001788888702378699], 
-            #    [0.0001383168733184448, 
-            #        5.836986395024724e-05]]
-
-            self.roi_knowledge = existing_knowledge
-            self.roi_temp_list = existing_hourly_knowledge
-
-            for i in gs.observed_roi(lnglat, map, config):
-                region = str(i['soma_roi_id'])
-
-                #Region Knowledge
-                if region in self.roi_knowledge:
-                    self.roi_knowledge[region]+=1
-                else:
-                    self.roi_knowledge[region]=1
-                
-                #Region Knowledge per hour. Bin them by hour.
-                if region in self.roi_temp_list: 
-                    self.roi_temp_list[region][hour]+=1
-                else:
-                    self.roi_temp_list[region]=[0]*24
-                    self.roi_temp_list[region][hour] = 1
-
-        print "roi_knowledge = ", self.roi_knowledge
-        print "roi_temporal_knowledge = ", self.roi_temp_list
-
-        #update mongodb (as the roslog/robot_pose data is removed at the end of the day)
-        for roi, score in self.roi_knowledge.items():
-            region_type = gs.type_of_roi(roi, map, config)
-
-            msg = RegionKnowledgeMsg(soma_roi_id = roi, type = str(region_type), \
-                       roi_knowledge = score, roi_knowledge_hourly = self.roi_temp_list[roi])
-
-            query = {"soma_roi_id" : roi}
-            #print "MESSAGE = \n", msg
-            #print "query = ", query
-            p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
-
-        print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
-        self.knowledge_plot(n_bins)
-        self.methods["roi_total_knowledge"] = self.roi_knowledge
-        self.methods["roi_knowledge"] = self.roi_temp_list
-        rospy.loginfo('Done')
-        
-
-    def time_plot(timestamps_vec, knowledge, interval=3600, period=86400, \
+    def temporal_plot(self, plot_interval=900.0, period=86400, \
                         vis=False):
         pc = []
         pf = []
-        for v in timestamps_vec:
+        #query model at these points to generate graph:
+        timestamps = np.arange(0,period,plot_interval) 
+        for v in timestamps:
             pc.append(self.methods["time_dyn_clst"].query_clusters(v))
             pf.append(self.methods["time_fitting"].query_model(v))
+            
+        plot_vec = [t/3600.0 for t in timestamps]
+        fig = plt.figure()
+        t_ax = fig.add_subplot(111)
+        width=0.01
+        plt.bar(plot_vec,pc,width, color='r', edgecolor='r',\
+              label='dynamic clustering')
+        plt.plot(plot_vec,pf,label='GMM fitting')
 
-        plt.plot(timestamps_vec,pc,label='dynamic clustering')
-        plt.plot(timestamps_vec,pf,label='GMM fitting')
-        plt.plot(np.arange(0,period+1,interval), knowledge, label='knowledge')
-        plt.xlabel('samples')
+        plt.xlim([0,24])
+        t_ax.set_xticks(np.arange(0,24))
+
+        plt.xlabel('time of day')
         plt.ylabel('probability')
         plt.legend()
-        plt.savefig('/home/strands/STRANDS/learning/roi12.jpg', \
-                bbox_inches='tight', dpi=100)
+        filename='/tmp/temporal_plot_%s.jpg' % self.roi
+        plt.savefig(filename, bbox_inches='tight', dpi=100)
 
 
 
-    def knowledge_plot(self, n_bins):
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        z = 0
-        cl = ['r', 'g', 'b', 'y']
-        regions=[]
-        for (roi, k) in self.roi_temp_know.items():
-            #print k
-            regions.append(roi)
-            cls = [cl[z%4]]*n_bins
-            ax.bar(range(n_bins),k, zs=z, zdir='y', color=cls, alpha = 0.8)
-            z = z+1
-        ax.set_ylabel("ROI")
-        ax.set_xlabel("time")
-        ax.set_zlabel("observation (secs)/area (m^2)")
-        ax.set_xticks([0,3,6,9,12,15,18,21,24])
-        ax.set_yticks(range(1,len(regions)+1))
-        ax.set_yticklabels(regions)
-        plt.savefig('/home/strands/STRANDS/learning/roi_knowledge.jpg', \
-                bbox_inches='tight', dpi=100)
+def region_knowledge(map, config, interval=3600.0, period = 86400.0,\
+                    sampling_rate=10, plot=False):
+
+    """Returns the ROIs the robot has montitor at each logged robot pose"""
+    t0 = time.time()
+    n_bins = int(period/interval)
+
+    ##Get info stored in Mongodb Region Knowledge Store
+    ks = RegionKnowledgeImporter()
+    roi_knowledge = {}
+    roi_temp_list = {}
+
+    query = {"soma_roi_id"  : {"$exists": "true"}, 
+            "roi_knowledge" : {"$exists": "true"}}
+    for region in ks.find(query):
+        roi_knowledge[str(region["soma_roi_id"])] = int(region["roi_knowledge"])
+        roi_temp_list[str(region["soma_roi_id"])] = region["roi_knowledge_hourly"]
+
+    print "existing knowledge = ", roi_knowledge
+    print "existing hourly knowledge = ", roi_temp_list
+
+    ##Query the Robot Poses from roslog
+    gs = GeoSpatialStoreProxy('geospatial_store','soma')
+    ms = GeoSpatialStoreProxy('message_store','soma_roi')
+    roslog = GeoSpatialStoreProxy('roslog','robot_pose')
+
+    query = {"_id": {"$exists": "true"}}
+    print "sampling rate =", sampling_rate
+
+    ##Loop through the robot poses for the day
+    for cnt, p in enumerate(roslog.find(query)):
+        if cnt % sampling_rate != 0: continue   #Take 1/10 of the roslog poses
+        timepoint = cnt/sampling_rate
+
+        #print p
+        pose = p['position']
+        ro, pi, yaw = euler_from_quaternion([0, 0, \
+                p['orientation']['z'], p['orientation']['w'] ])
+
+        inserted_at = p['_meta']['inserted_at']
+        hour = inserted_at.time().hour
+
+        coords = robot_view_cone(pose['x'], pose['y'], yaw)
+        lnglat = []
+        for pt in coords:
+            lnglat.append(gs.coords_to_lnglat(pt[0], pt[1]))
+        #add first points again to make it a complete polygon
+        lnglat.append(gs.coords_to_lnglat(coords[0][0], coords[0][1]))
+
+        for i in gs.observed_roi(lnglat, map, config):
+            region = str(i['soma_roi_id'])
+
+            #Region Knowledge
+            if region in roi_knowledge:
+                roi_knowledge[region]+=1
+            else:
+                roi_knowledge[region]=1
+                
+            #Region Knowledge per hour. Bin them by hour.
+            if region in roi_temp_list: 
+                roi_temp_list[region][hour]+=1
+            else:
+                roi_temp_list[region]=[0]*24
+                roi_temp_list[region][hour] = 1
+
+    print "roi_knowledge = ", roi_knowledge
+    print "roi_temporal_knowledge = ", roi_temp_list
+
+    #update mongodb (as the roslog/robot_pose data is removed at the end of the day)
+    for roi, score in roi_knowledge.items():
+        region_type = gs.type_of_roi(roi, map, config)
+
+        msg = RegionKnowledgeMsg(soma_roi_id = roi, type = str(region_type), \
+                   roi_knowledge = score, roi_knowledge_hourly = roi_temp_list[roi])
+
+        query = {"soma_roi_id" : roi}
+        #print "MESSAGE = \n", msg
+        #print "query = ", query
+        p_id = ks._store_client.update(message=msg, message_query=query, meta={}, upsert=True)
+
+    print "Knowledge of Regions takes: ", time.time()-t0, "  secs."
+    if plot: knowledge_plot(roi_temp_list, n_bins)
+
+    rospy.loginfo('Done')
+    return roi_knowledge, roi_temp_list
+
+
+def knowledge_plot(roi_temp_list, n_bins):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    z = 0
+    cl = ['r', 'g', 'b', 'y']
+    regions=[]
+    for (roi, k) in roi_temp_list.items():
+        #print k
+        regions.append(roi)
+        cls = [cl[z%4]]*n_bins
+        ax.bar(range(n_bins),k, zs=z, zdir='y', color=cls, alpha = 0.8)
+        z = z+1
+    ax.set_ylabel("ROI")
+    ax.set_xlabel("time")
+    ax.set_zlabel("observation (secs)/area (m^2)")
+    ax.set_xticks([0,3,6,9,12,15,18,21,24])
+    ax.set_yticks(range(1,len(regions)+1))
+    ax.set_yticklabels(regions)
+    date = time.strftime("%x").replace("/","_")
+    filename='/tmp/roi_knowledge__%s.jpg' % date
+    plt.savefig(filename, bbox_inches='tight', dpi=100)
 
     
 def robot_view_cone( Px, Py, yaw):

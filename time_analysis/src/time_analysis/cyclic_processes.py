@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 21 09:33:01 2015
+
+@author: eris
+"""
+
 #!/usr/bin/env python
 
 from __future__ import division
@@ -46,27 +53,34 @@ class activity_time:
         self.xfit = np.arange(0,period+1,300)
     
         self.models, self.aic, self.bic = gmm_numpy(self.shifted_vec,5)
-        best = np.argmin(self.bic)
+        if self.models:
 
-        self.shifted_xfit = np.arange(self.shifted_0,self.shifted_0+self.period,300)
-        logprob, responsibilities = self.models[best].score_samples(normalize(self.shifted_xfit))
-        pdf = np.exp(logprob)
+            best = np.argmin(self.bic)
+            choice = 'gmm ' + str(best+1) + ' components'
 
-        scale_factor = (sum(self.bins)/self.n_bins) / (sum(pdf)/(self.period/300))
-        yfit = [y * scale_factor for y in pdf]
-        yfit = np.roll(yfit,int(self.shifted_0/(self.period/300)+1))
-        self.yfit_mm = np.append(yfit,yfit[0])
-        self.comp_fit_mm = []
+            self.shifted_xfit = np.arange(self.shifted_0,self.shifted_0+self.period,300)
+            X = np.array(normalize(self.shifted_xfit))[:,None]
+            logprob, responsibilities = self.models[best].score_samples(X)
+            pdf = np.exp(logprob)
 
-        all_pdf_log, resp = self.models[best].score_samples(normalize(np.arange(0,period,1)))
-        self.max_pd = max(np.exp(all_pdf_log))
+            yfit = np.roll(pdf,int(self.shifted_0/(self.period/300)+1))
+            self.yfit_mm = np.append(yfit,yfit[0])
+            self.max_pdf = max(yfit)
+            self.comp_fit_mm = []
 
-        self.cluster_set = clustering(list(self.shifted_vec),5,self.period,self.interval)
+        else:
+            choice = 'vm'
+            self.yfit_vm = fit_curve(to_rad(self.xfit,self.period),'v',[max(self.bins),self.kappa,to_rad(self.circ_mu,self.period),1])
+            self.max_pdf = max(self.yfit_vm)
+        print "Temporal model = ", choice
 
     def query_model(self,x):
-        best = np.argmin(self.bic)
-        logprob, resp = self.models[best].score_samples(normalize([x]))
-        return np.exp(logprob[0])/self.max_pd
+        if self.models:
+            best = np.argmin(self.bic)        
+            logprob, responsibilities = self.models[best].score_samples(normalize([x]))
+            return np.exp(logprob)[0]/self.max_pdf
+        else:
+            return vonmises.pdf(to_rad(x,self.period), kappa=self.kappa, loc=to_rad(self.circ_mu,self.period), scale=1)/self.max_pdf
 
             
     def display_indexes(self,plot_options,clusters,save_file):
@@ -167,7 +181,7 @@ class dynamic_clusters:
         self.LS[i] += t
         self.SS[i] += t**2
         self.compute_measures(i)
-        self.L[i] = 2*self.R[i]*np.sqrt(d/self.T[i])
+        self.L[i] = self.R[i]*np.sqrt(1+d/self.T[i])
         
     def add_element(self,d,t):
         if self.K == 0:
@@ -182,7 +196,7 @@ class dynamic_clusters:
     
     def update_record(self,d,t):
         for c in range(self.K):
-            self.L[c] = 2*self.R[c]*np.sqrt(d/self.T[c])
+            self.L[c] = self.R[c]*np.sqrt(1+d/self.T[c])
         seq = sorted(range(self.K), key=lambda i: self.C[i])
         c = 0
         while c < len(seq)-1:
@@ -197,7 +211,7 @@ class dynamic_clusters:
         self.LS[i] += self.LS[j]
         self.SS[i] += self.SS[j]
         self.compute_measures(i)
-        self.L[i] = 2*self.R[i]*np.sqrt(d/self.T[i])
+        self.L[i] = self.R[i]*np.sqrt(1+d/self.T[i])
         self.delete_cluster(j)
         
     def compute_measures(self,i):
@@ -215,10 +229,13 @@ class dynamic_clusters:
         del self.R[i]
         del self.D[i]
         del self.L[i]
-       
+        
     def query_clusters(self,t):
-        p = np.min([abs(c-t)/l for (c,l) in zip(self.C,self.L)])
-        return (1-p)
+        p = np.min([abs(c-t)/(2*l) for (c,l) in zip(self.C,self.L)])
+        if p > 1:
+            return 0
+        else:
+            return 1-p
          
 #################################  
 
@@ -370,7 +387,7 @@ def fit_curve(xfit,fit_type,param):
 def gmm_numpy(vec,max_C):
     n = len(vec)
     N = min(n,max_C)
-    X = np.array(normalize(vec))
+    X = np.array(normalize(vec))[:, None]
     
     models = []
     for i in range(N):
@@ -483,4 +500,4 @@ def to_rad(vec,period=86400.0):
  
 def from_rad(vec,period=86400.0):
     return np.asarray(vec)*period/(2*np.pi)%period
-   
+    
