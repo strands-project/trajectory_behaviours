@@ -56,32 +56,29 @@ class activity_time:
         if self.models:
 
             best = np.argmin(self.bic)
-    
+            choice = 'gmm ' + str(best+1) + ' components'
+
             self.shifted_xfit = np.arange(self.shifted_0,self.shifted_0+self.period,300)
-            logprob, responsibilities = self.models[best].score_samples(normalize(self.shifted_xfit))
+            X = np.array(normalize(self.shifted_xfit))[:,None]
+            logprob, responsibilities = self.models[best].score_samples(X)
             pdf = np.exp(logprob)
-    
-            scale_factor = (sum(self.bins)/self.n_bins) / (sum(pdf)/(self.period/300))
-            yfit = [y * scale_factor for y in pdf]
-            yfit = np.roll(yfit,int(self.shifted_0/(self.period/300)+1))
+
+            yfit = np.roll(pdf,int(self.shifted_0/(self.period/300)+1))
             self.yfit_mm = np.append(yfit,yfit[0])
+            self.max_pdf = max(yfit)
             self.comp_fit_mm = []
-            
+
         else:
-            
-            self.yfit_vmm = fit_curve(to_rad(self.xfit,self.period),'v',[max(self.bins),self.kappa,to_rad(self.circ_mu,self.period),1])
-            #scale_factor = (sum(self.bins)/self.n_bins) / (sum(yfit)/(self.period/300))
-            #self.yfit_mm = [y * scale_factor for y in yfit]
-            self.max_pdf = max(self.yfit_vmm)
-    
-    #        self.cluster_set = clustering(list(self.shifted_vec),5,self.period,self.interval)
+            choice = 'vm'
+            self.yfit_vm = fit_curve(to_rad(self.xfit,self.period),'v',[max(self.bins),self.kappa,to_rad(self.circ_mu,self.period),1])
+            self.max_pdf = max(self.yfit_vm)
+        print "Temporal model = ", choice
 
     def query_model(self,x):
         if self.models:
             best = np.argmin(self.bic)        
             logprob, responsibilities = self.models[best].score_samples(normalize([x]))
-            scale_factor = (sum(self.bins)/self.n_bins)
-            return np.exp(logprob)[0]/scale_factor
+            return np.exp(logprob)[0]/self.max_pdf
         else:
             return vonmises.pdf(to_rad(x,self.period), kappa=self.kappa, loc=to_rad(self.circ_mu,self.period), scale=1)/self.max_pdf
 
@@ -232,11 +229,13 @@ class dynamic_clusters:
         del self.R[i]
         del self.D[i]
         del self.L[i]
-       
+        
     def query_clusters(self,t):
         p = np.min([abs(c-t)/(2*l) for (c,l) in zip(self.C,self.L)])
-        if p > 1: return 0
-        else: return 1-p
+        if p > 1:
+            return 0
+        else:
+            return 1-p
          
 #################################  
 
@@ -388,13 +387,13 @@ def fit_curve(xfit,fit_type,param):
 def gmm_numpy(vec,max_C):
     n = len(vec)
     N = min(n,max_C)
-    X = np.array(normalize(vec))
+    X = np.array(normalize(vec))[:, None]
     
     models = []
     for i in range(N):
         try:
             models.append(GMM(i+1).fit(X))
-        except (RuntimeError, ValueError):
+        except RuntimeError:
             print "Fitting failed, cluster n. ", str(i+1)
     
     aic = [m.aic(X) for m in models]
