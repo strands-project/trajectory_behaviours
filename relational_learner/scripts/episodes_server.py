@@ -119,7 +119,8 @@ def handle_episodes(req):
     objects = two_proxies.roi_objects(roi)
     print "\nROI: ", roi
     #print "\n  Objects: ", objects
-
+    if objects == None: return EpisodeServiceResponse(uuid=uuid)
+    
     """2.5 Get the closest objects to the trajectory"""
     closest_objs_to_trajs = ot.trajectory_object_dist(objects, trajectory_poses)
 
