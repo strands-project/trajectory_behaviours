@@ -1,0 +1,20 @@
+Trajectories
+
+Author: Ferdian BHam
+
+std_msgs/Header header
+..../Trajectory[] trajectories
+
+Complete/Incremental Trajectory
+
+std_msgs/Header header
+string uuid
+geometry_msgs/PoseStamped[] trajectory
+geometry_msgs/Pose[] robot
+time start_time 
+time end_time 
+float trajectory_length # length is in meters
+bool complete # complete or incremental trajectory?
+int sequence_id # sequence id if we do incremental trajectory
+
+# add meta field to include map information based on topological map name
