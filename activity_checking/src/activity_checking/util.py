@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 
 import math
+import rospy
+import datetime
 import itertools
 import numpy as np
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString
 from tf.transformations import euler_from_quaternion
 
+from soma_map_manager.srv import MapInfo
+from soma_manager.srv import SOMA2QueryObjs
 
-# def time_difference(self, tested_time):
-#     in_datetime = datetime.datetime.fromtimestamp(tested_time.secs)
-#     in_utcdatetime = datetime.datetime.utcfromtimestamp(tested_time.secs)
-#     in_rostime = rospy.Time(time.mktime(in_datetime.timetuple()))
-#     in_utcrostime = rospy.Time(time.mktime(in_utcdatetime.timetuple()))
-#     delta = abs(tested_time.secs - in_rostime.secs)
-#     return delta / 3600
 
 # calculate polygon area using Shoelace Formula
 # http://stackoverflow.com/questions/24467972/calculate-area-of-polygon-given-x-y-coordinates
@@ -43,6 +40,10 @@ def create_polygon(xs, ys):
         )
     else:
         return Polygon(np.array(zip(xs, ys)))
+
+
+def create_line_string(points):
+    return LineString(points)
 
 
 def robot_view_cone(pose):
@@ -80,3 +81,49 @@ def robot_view_area(Px, Py, yaw):
         poses.append([x, y])
     # return [[Px + 4, Py], [Px, Py - 4], [Px - 4, Py], [Px, Py + 4]]
     return poses
+
+
+def get_dict_observation(msg):
+    start = datetime.datetime.fromtimestamp(msg.start_from.secs)
+    end = msg.until + rospy.Duration(0, 1)
+    end = datetime.datetime.fromtimestamp(end.secs)
+    key = "%s-%s" % (start.minute, end.minute)
+    result = {
+        msg.region_id: {
+            start.month: {
+                start.day: {start.hour: {key: msg.duration}}
+            }
+        }
+    }
+    return result
+
+
+def get_soma_info(soma_config):
+    soma_service = rospy.ServiceProxy("/soma2/map_info", MapInfo)
+    soma_service.wait_for_service()
+    soma_map = soma_service(1).map_name
+    rospy.loginfo("Got soma map name %s..." % soma_map)
+    # get region information from soma2
+    soma_service = rospy.ServiceProxy("/soma2/query_db", SOMA2QueryObjs)
+    soma_service.wait_for_service()
+    result = soma_service(
+        2, False, False, False, False, False, False,
+        0, 0, 0, 0, 0, 0, 0, 0, [], [], ""
+    )
+    # create polygon for each regions
+    regions = dict()
+    rospy.loginfo("Total regions for this soma map are %d" % len(result.rois))
+    for region in result.rois:
+        if region.config == soma_config and region.map_name == soma_map:
+            xs = [pose.position.x for pose in region.posearray.poses]
+            ys = [pose.position.y for pose in region.posearray.poses]
+            regions[region.roi_id] = create_polygon(xs, ys)
+    rospy.loginfo("Total regions for this configuration are %d" % len(regions.values()))
+    return regions, soma_map
+
+
+def get_largest_intersected_regions(reference_region, target_regions):
+    areas = list()
+    for region in target_regions:
+        areas.append(reference_region.intersection(region).area)
+    return target_regions[areas.index(max(areas))]
