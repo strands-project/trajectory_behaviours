@@ -1,0 +1,18 @@
+<launch>
+    <arg name="soma_config"/>
+    <arg name="config_path" default=""/>
+    <arg name="tracker_topic" default="/people_tracker/positions"/>
+    <arg name="ubd_topic" default="/upper_body_detector/bounding_box_centres"/>
+
+    <arg name="machine" default="localhost" />
+    <arg name="user" default="" />
+
+    <machine name="$(arg machine)" address="$(arg machine)" env-loader="$(optenv ROS_ENV_LOADER )" user="$(arg user)" default="true"/>
+
+    <node pkg="activity_checking" type="activity_check_manager.py" name="activity_checking" output="screen" respawn="true">
+        <param name="soma_config" value="$(arg soma_config)" type="string"/>
+        <param name="config_path" value="$(arg config_path)" type="string"/>
+        <param name="tracker_topic" value="$(arg tracker_topic)" type="string"/>
+        <param name="ubd_topic" value="$(arg ubd_topic)" type="string"/>
+    </node>
+</launch>
