@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   robblog
   rospy
   tf
+  vision_people_logging
 )
 
 catkin_python_setup()
@@ -50,7 +51,7 @@ catkin_python_setup()
 ###################################
 
 catkin_package(
- CATKIN_DEPENDS bayes_people_tracker geometry_msgs message_filters robblog rospy tf mongodb_store std_msgs
+ CATKIN_DEPENDS bayes_people_tracker geometry_msgs message_filters robblog rospy tf mongodb_store std_msgs vision_people_logging
 )
 
 ###########

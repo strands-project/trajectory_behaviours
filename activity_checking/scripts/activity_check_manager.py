@@ -71,6 +71,7 @@ class ActivityCheck(object):
 
     def _check(self, et, curr):
         dur = rospy.Duration((et - curr).total_seconds())
+        self.ac.reset()
         thread = threading.Thread(
             target=self.ac.continuous_check,
             args=(dur,)
