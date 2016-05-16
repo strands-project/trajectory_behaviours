@@ -34,7 +34,9 @@ class PeopleCounter(object):
         self._ubd_db = MessageStoreProxy(collection="upper_bodies")
         # service client to upper body logging
         rospy.loginfo("Create client to /vision_logging_service/capture...")
-        self.capture_srv = rospy.ServiceProxy("/vision_logging_service/capture", CaptureUBD)
+        self.capture_srv = rospy.ServiceProxy(
+            "/vision_logging_service/capture", CaptureUBD
+        )
         # subscribing to ubd topic
         subs = [
             message_filters.Subscriber(
@@ -132,16 +134,17 @@ class PeopleCounter(object):
         string_body = ''
         string_body_images = ''
         for roi, uuids in self.uuids.iteritems():
-            string_body += "**Region %s**: %d person(s) were detected\n" % (
+            string_body += "**Region %s**: %d person(s) were detected\n\n" % (
                 roi, len(uuids)
             )
-            string_body_images += "**Region %s**: " % roi
-            for index, uuid in enumerate(uuids):
-                if self.image_ids[roi][index] != "":
-                    string_body_images += "[%s](ObjectID(%s)) " % (
-                        uuid, self.image_ids[roi][index]
-                    )
-            string_body_images += "\n"
+            if len(uuids) > 0 and self.image_ids[roi][0] != "":
+                string_body_images += "**Region %s**: " % roi
+                for index, uuid in enumerate(uuids):
+                    if self.image_ids[roi][index] != "":
+                        string_body_images += "![%s](ObjectID(%s)) " % (
+                            uuid, self.image_ids[roi][index]
+                        )
+                string_body_images += "\n\n"
         entry = RobblogEntry(
             title="Activity check from %s to %s" % (start_time, end_time),
             body=string_body
@@ -169,12 +172,16 @@ class PeopleCounter(object):
                             _id = ""
                             if len(result.obj_ids) > 0:
                                 ubd_log = self._ubd_db.query_id(
-                                    result.obj_id[0], LoggingUBD._type
+                                    result.obj_ids[0], LoggingUBD._type
                                 )
                                 try:
-                                    _id = self._db_image.insert(ubd_log.ubd_rgb[ind_ubd])
+                                    _id = self._db_image.insert(
+                                        ubd_log[0].ubd_rgb[ind_ubd]
+                                    )
                                 except:
-                                    rospy.logwarn("Missed the person to capture images...")
+                                    rospy.logwarn(
+                                        "Missed the person to capture images..."
+                                    )
                             self.image_ids[pose_inside_roi].append(_id)
                             # self.uuids.append(self._tracker_uuids[ind])
                             self.uuids[pose_inside_roi].append(
@@ -185,7 +192,7 @@ class PeopleCounter(object):
                             )
                             rospy.loginfo(
                                 "%s is detected in region %s - (%.2f, %.2f)" % (
-                                    self._tracker_uuids[ind], roi,
+                                    self._tracker_uuids[ind], pose_inside_roi,
                                     i.position.x, i.position.y
                                 )
                             )
