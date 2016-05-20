@@ -62,8 +62,7 @@ class ActivityCheck(object):
                 thread.join()
                 end_time = None
                 thread = None
-            else:
-                rospy.sleep(0.5)
+            rospy.sleep(0.1)
         if thread is not None:
             self.ac.stop_check()
             thread.join()
@@ -71,6 +70,7 @@ class ActivityCheck(object):
 
     def _check(self, et, curr):
         dur = rospy.Duration((et - curr).total_seconds())
+        self.ac.reset()
         thread = threading.Thread(
             target=self.ac.continuous_check,
             args=(dur,)
