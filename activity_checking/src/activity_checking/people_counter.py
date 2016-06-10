@@ -19,8 +19,9 @@ from mongodb_store.message_store import MessageStoreProxy
 
 class PeopleCounter(object):
 
-    def __init__(self, config, coll='activity_robblog'):
+    def __init__(self, config, region_names=dict(), coll='activity_robblog'):
         rospy.loginfo("Starting activity checking...")
+        self.region_names = region_names
         self._lock = False
         # regions = {roi:polygon} and soma map info
         self.regions, self.soma_map = get_soma_info(config)
@@ -56,6 +57,9 @@ class PeopleCounter(object):
         ts.registerCallback(self.cb)
 
     def reset(self):
+        # start modified code
+        self.detected_time = dict() 
+        # end modified code
         self.uuids = {roi: list() for roi, _ in self.regions.iteritems()}
         self.image_ids = {roi: list() for roi, _ in self.regions.iteritems()}
         self.people_poses = list()
@@ -127,6 +131,8 @@ class PeopleCounter(object):
                     cond = cond and (not is_near)
         return cond, pose_inside_roi
 
+    def _create_robmsg(self):
+
     def _store(self, start_time, end_time):
         rospy.loginfo("Storing location and the number of detected persons...")
         start_time = datetime.datetime.fromtimestamp(start_time.secs)
@@ -134,23 +140,31 @@ class PeopleCounter(object):
         string_body = ''
         string_body_images = ''
         for roi, uuids in self.uuids.iteritems():
-            string_body += "**Region %s**: %d person(s) were detected\n\n" % (
-                roi, len(uuids)
-            )
+            region_name = roi
+            if region_name in self.region_names.keys():
+                region_name = self.region_names[region_name]
+            if len(uuids) > 0:
+                string_body += "**%s**: %d person(s) were detected\n\n" % (
+                    region_name, len(uuids)
+                )
             if len(uuids) > 0 and self.image_ids[roi][0] != "":
-                string_body_images += "**Region %s**: " % roi
+                string_body_images += "**%s**: " % region_name
                 for index, uuid in enumerate(uuids):
                     if self.image_ids[roi][index] != "":
                         string_body_images += "![%s](ObjectID(%s)) " % (
                             uuid, self.image_ids[roi][index]
                         )
                 string_body_images += "\n\n"
+        if string_body == "":
+            string_body += "Nobody was found during this time period."
         entry = RobblogEntry(
-            title="Activity check from %s to %s" % (start_time, end_time),
+            # title="Activity check from %s to %s" % (start_time, end_time),
+            title="%s Activity Report" % start_time.date(),
             body=string_body
         )
         entry_images = RobblogEntry(
-            title="Activity check from %s to %s" % (start_time, end_time),
+            # title="Activity check from %s to %s" % (start_time, end_time),
+            title="%s Activity Report" % start_time.date(),
             body=string_body_images
         )
         self._db.insert(entry)

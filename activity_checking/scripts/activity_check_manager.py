@@ -13,14 +13,20 @@ from activity_checking.people_counter import PeopleCounter
 class ActivityCheck(object):
 
     def __init__(self):
+        region_name_path = ""
         config_path = rospy.get_param("~config_path", "")
         soma_config = rospy.get_param("~soma_config", "activity_exploration")
-        self.ac = PeopleCounter(soma_config, coll="activity_blog")
         if config_path == "":
             config_path = roslib.packages.get_pkg_dir('activity_checking') + '/config/default.yaml'
+            # region name path must be the same as config path
+            region_name_path = roslib.packages.get_pkg_dir('activity_checking') + '/config/region_names.yaml'
         weekly_shift = yaml.load(open(config_path, 'r'))
+        region_names = yaml.load(open(region_name_path, 'r'))
         self.weekly_shift = self._convert_weekly_shift(
             weekly_shift
+        )
+        self.ac = PeopleCounter(
+            soma_config, region_names=region_names, coll="tsc_blog"
         )
 
     def _convert_weekly_shift(self, weekly_shift):
