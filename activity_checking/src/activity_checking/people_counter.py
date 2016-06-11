@@ -152,10 +152,10 @@ class PeopleCounter(object):
                 regions_to_string[region_category] = '# Activity Report \n'
                 regions_to_string[region_category] += ' * **Regions:** %s \n' % str(rois)
                 regions_to_string[region_category] += ' * **Area:** %s \n' % region_category
-                regions_to_string[region_category] += ' * **Start time:** %s \n' % str(start_time.date())
-                regions_to_string[region_category] += ' * **End time:** %s \n' % str(end_time.date())
+                regions_to_string[region_category] += ' * **Start time:** %s \n' % str(start_time)
+                regions_to_string[region_category] += ' * **End time:** %s \n' % str(end_time)
                 regions_to_string[region_category] += ' * **Summary:** %d person(s) were detected \n' % len(uuids)
-                regions_to_string[region_category] += ' * **Details:** \n'
+                regions_to_string[region_category] += ' * **Details:** \n\n'
                 regions_to_string_img[region_category] = copy.copy(regions_to_string[region_category])
             for roi in rois:
                 for ind, uuid in enumerate(self.uuids[roi]):
@@ -163,11 +163,12 @@ class PeopleCounter(object):
                         detected_time = self.detected_time[uuid]
                     except:
                         detected_time = start_time
-                    regions_to_string[region_category] += '%s was detected at %s \n' % (uuid, detected_time)
+                    detected_time = datetime.datetime.fromtimestamp(detected_time.secs)
+                    regions_to_string[region_category] += '%s was detected at %s \n\n' % (uuid, detected_time)
                     regions_to_string_img[region_category] += "![%s](ObjectID(%s)) " % (
                         uuid, self.image_ids[roi][ind]
                     )
-                    regions_to_string_img[region_category] += 'was detected at %s \n' % detected_time
+                    regions_to_string_img[region_category] += 'was detected at %s \n\n' % str(detected_time)
 
         entries = list()
         for region_category, string_body in regions_to_string.iteritems():

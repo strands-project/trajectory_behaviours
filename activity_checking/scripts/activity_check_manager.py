@@ -32,6 +32,7 @@ class ActivityCheck(object):
         self.weekly_shift = self._convert_weekly_shift(
             weekly_shift
         )
+        rospy.loginfo("Activity checking is ready...")
 
     def _convert_weekly_shift(self, weekly_shift):
         rospy.loginfo("Creating shifting times to check human activity...")
@@ -70,18 +71,15 @@ class ActivityCheck(object):
                         rospy.sleep(0.1)
             elif curr >= end_time:
                 thread.join()
+                rospy.loginfo("Cleaning unnecessary calculation...")
                 end_time = None
                 thread = None
             rospy.sleep(0.1)
-        # if thread is not None and ac is not None:
-        #     ac.stop_check()
-        #     thread.join()
-        #     rospy.sleep(0.1)
 
     def _check(self, et, curr):
         dur = rospy.Duration((et - curr).total_seconds())
         ac = PeopleCounter(
-            self.soma_config, region_names=self.region_names, coll=self.collection_name
+            self.soma_config, region_categories=self.region_names, coll=self.collection_name
         )
         thread = threading.Thread(
             target=ac.continuous_check,
