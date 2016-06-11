@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import sys
 import yaml
 import time
 import rospy
@@ -15,18 +16,21 @@ class ActivityCheck(object):
     def __init__(self):
         region_name_path = ""
         config_path = rospy.get_param("~config_path", "")
-        soma_config = rospy.get_param("~soma_config", "activity_exploration")
+        self.soma_config = rospy.get_param("~soma_config", "activity_exploration")
+        self.collection_name = "tsc_blog"
         if config_path == "":
             config_path = roslib.packages.get_pkg_dir('activity_checking') + '/config/default.yaml'
             # region name path must be the same as config path
             region_name_path = roslib.packages.get_pkg_dir('activity_checking') + '/config/region_names.yaml'
-        weekly_shift = yaml.load(open(config_path, 'r'))
-        region_names = yaml.load(open(region_name_path, 'r'))
+        try:
+            weekly_shift = yaml.load(open(config_path, 'r'))
+            self.region_names = yaml.load(open(region_name_path, 'r'))
+        except:
+            rospy.logerr("default.yaml and region_names.yaml can not be found!")
+            rospy.loginfo("Terminating...")
+            sys.exit(2)
         self.weekly_shift = self._convert_weekly_shift(
             weekly_shift
-        )
-        self.ac = PeopleCounter(
-            soma_config, region_names=region_names, coll="tsc_blog"
         )
 
     def _convert_weekly_shift(self, weekly_shift):
@@ -69,16 +73,18 @@ class ActivityCheck(object):
                 end_time = None
                 thread = None
             rospy.sleep(0.1)
-        if thread is not None:
-            self.ac.stop_check()
-            thread.join()
-            rospy.sleep(0.1)
+        # if thread is not None and ac is not None:
+        #     ac.stop_check()
+        #     thread.join()
+        #     rospy.sleep(0.1)
 
     def _check(self, et, curr):
         dur = rospy.Duration((et - curr).total_seconds())
-        self.ac.reset()
+        ac = PeopleCounter(
+            self.soma_config, region_names=self.region_names, coll=self.collection_name
+        )
         thread = threading.Thread(
-            target=self.ac.continuous_check,
+            target=ac.continuous_check,
             args=(dur,)
         )
         thread.start()
