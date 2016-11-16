@@ -1,21 +1,68 @@
 #! /usr/bin/env python
 
-import tf
 import copy
-import rospy
 import datetime
+import itertools
 import threading
+import numpy as np
+from shapely.geometry import Point, Polygon
+from scipy.spatial.distance import euclidean
+
+import tf
+import rospy
 import message_filters
 from std_msgs.msg import Header
-from shapely.geometry import Point
+from geometry_msgs.msg import PoseStamped, PoseArray
+
 from robblog.msg import RobblogEntry
-from scipy.spatial.distance import euclidean
-from activity_checking.util import get_soma_info
+from soma_map_manager.srv import MapInfo
+from soma_manager.srv import SOMAQueryROIs
 from vision_people_logging.msg import LoggingUBD
 from vision_people_logging.srv import CaptureUBD
 from bayes_people_tracker.msg import PeopleTracker
-from geometry_msgs.msg import PoseStamped, PoseArray
 from mongodb_store.message_store import MessageStoreProxy
+
+
+def create_polygon(xs, ys):
+    # if poly_area(np.array(xs), np.array(ys)) == 0.0:
+    if Polygon(np.array(zip(xs, ys))).area == 0.0:
+        xs = [
+            [xs[0]] + list(i) for i in itertools.permutations(xs[1:])
+        ]
+        ys = [
+            [ys[0]] + list(i) for i in itertools.permutations(ys[1:])
+        ]
+        areas = list()
+        for ind in range(len(xs)):
+            # areas.append(poly_area(np.array(xs[ind]), np.array(ys[ind])))
+            areas.append(Polygon(np.array(zip(xs[ind], ys[ind]))))
+        return Polygon(
+            np.array(zip(xs[areas.index(max(areas))], ys[areas.index(max(areas))]))
+        )
+    else:
+        return Polygon(np.array(zip(xs, ys)))
+
+
+def get_soma_info(soma_config):
+    soma_service = rospy.ServiceProxy("/soma/map_info", MapInfo)
+    soma_service.wait_for_service()
+    soma_map = soma_service(1).map_name
+    rospy.loginfo("Got soma map name %s..." % soma_map)
+    # get region information from soma2
+    soma_service = rospy.ServiceProxy("/soma/query_rois", SOMAQueryROIs)
+    soma_service.wait_for_service()
+    result = soma_service(
+        query_type=0, roiconfigs=[soma_config], returnmostrecent=True
+    )
+    # create polygon for each regions
+    regions = dict()
+    for region in result.rois:
+        if region.config == soma_config and region.map_name == soma_map:
+            xs = [pose.position.x for pose in region.posearray.poses]
+            ys = [pose.position.y for pose in region.posearray.poses]
+            regions[region.id] = create_polygon(xs, ys)
+    rospy.loginfo("Total regions for configuration %s are %d" % (soma_config, len(regions.values())))
+    return regions, soma_map
 
 
 class PeopleCounter(object):

@@ -1,7 +1,7 @@
 <launch>
     <arg name="soma_config"/>
     <arg name="config_path" default=""/>
-    <arg name="tracker_topic" default="/people_tracker/positions"/>
+    <arg name="tracker_topic" default="/people_tracker_filter/positions"/>
     <arg name="ubd_topic" default="/upper_body_detector/bounding_box_centres"/>
 
     <arg name="machine" default="localhost" />
