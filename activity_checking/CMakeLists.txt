@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   robblog
   rospy
   tf
+  soma_map_manager
+  soma_manager
   vision_people_logging
 )
 
@@ -51,7 +53,7 @@ catkin_python_setup()
 ###################################
 
 catkin_package(
- CATKIN_DEPENDS bayes_people_tracker geometry_msgs message_filters robblog rospy tf mongodb_store std_msgs vision_people_logging
+ CATKIN_DEPENDS bayes_people_tracker geometry_msgs message_filters robblog rospy tf mongodb_store std_msgs vision_people_logging soma_map_manager soma_manager
 )
 
 ###########

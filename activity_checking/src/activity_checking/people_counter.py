@@ -1,26 +1,75 @@
 #! /usr/bin/env python
 
+import copy
+import datetime
+import itertools
+import threading
+import numpy as np
+from shapely.geometry import Point, Polygon
+from scipy.spatial.distance import euclidean
+
 import tf
 import rospy
-import datetime
-import threading
 import message_filters
 from std_msgs.msg import Header
-from shapely.geometry import Point
+from geometry_msgs.msg import PoseStamped, PoseArray
+
 from robblog.msg import RobblogEntry
-from scipy.spatial.distance import euclidean
-from activity_checking.util import get_soma_info
+from soma_map_manager.srv import MapInfo
+from soma_manager.srv import SOMAQueryROIs
 from vision_people_logging.msg import LoggingUBD
 from vision_people_logging.srv import CaptureUBD
 from bayes_people_tracker.msg import PeopleTracker
-from geometry_msgs.msg import PoseStamped, PoseArray
 from mongodb_store.message_store import MessageStoreProxy
+
+
+def create_polygon(xs, ys):
+    # if poly_area(np.array(xs), np.array(ys)) == 0.0:
+    if Polygon(np.array(zip(xs, ys))).area == 0.0:
+        xs = [
+            [xs[0]] + list(i) for i in itertools.permutations(xs[1:])
+        ]
+        ys = [
+            [ys[0]] + list(i) for i in itertools.permutations(ys[1:])
+        ]
+        areas = list()
+        for ind in range(len(xs)):
+            # areas.append(poly_area(np.array(xs[ind]), np.array(ys[ind])))
+            areas.append(Polygon(np.array(zip(xs[ind], ys[ind]))))
+        return Polygon(
+            np.array(zip(xs[areas.index(max(areas))], ys[areas.index(max(areas))]))
+        )
+    else:
+        return Polygon(np.array(zip(xs, ys)))
+
+
+def get_soma_info(soma_config):
+    soma_service = rospy.ServiceProxy("/soma/map_info", MapInfo)
+    soma_service.wait_for_service()
+    soma_map = soma_service(1).map_name
+    rospy.loginfo("Got soma map name %s..." % soma_map)
+    # get region information from soma2
+    soma_service = rospy.ServiceProxy("/soma/query_rois", SOMAQueryROIs)
+    soma_service.wait_for_service()
+    result = soma_service(
+        query_type=0, roiconfigs=[soma_config], returnmostrecent=True
+    )
+    # create polygon for each regions
+    regions = dict()
+    for region in result.rois:
+        if region.config == soma_config and region.map_name == soma_map:
+            xs = [pose.position.x for pose in region.posearray.poses]
+            ys = [pose.position.y for pose in region.posearray.poses]
+            regions[region.id] = create_polygon(xs, ys)
+    rospy.loginfo("Total regions for configuration %s are %d" % (soma_config, len(regions.values())))
+    return regions, soma_map
 
 
 class PeopleCounter(object):
 
-    def __init__(self, config, coll='activity_robblog'):
+    def __init__(self, config, region_categories=dict(), coll='activity_robblog'):
         rospy.loginfo("Starting activity checking...")
+        self.region_categories = region_categories
         self._lock = False
         # regions = {roi:polygon} and soma map info
         self.regions, self.soma_map = get_soma_info(config)
@@ -56,6 +105,9 @@ class PeopleCounter(object):
         ts.registerCallback(self.cb)
 
     def reset(self):
+        # start modified code
+        self.detected_time = dict()
+        # end modified code
         self.uuids = {roi: list() for roi, _ in self.regions.iteritems()}
         self.image_ids = {roi: list() for roi, _ in self.regions.iteritems()}
         self.people_poses = list()
@@ -127,34 +179,68 @@ class PeopleCounter(object):
                     cond = cond and (not is_near)
         return cond, pose_inside_roi
 
+    def _uuids_roi_to_category(self, dict_uuids):
+        result = dict()
+        for roi, uuids in dict_uuids.iteritems():
+            region_category = roi
+            if region_category in self.region_categories:
+                region_category = self.region_categories[region_category]
+            if region_category not in result:
+                result[region_category] = (list(), list())
+            result[region_category][0].append(roi)
+            result[region_category][1].extend(uuids)
+        return result
+
+    def _create_robmsg(self, start_time, end_time):
+        regions_to_string = dict()
+        regions_to_string_img = dict()
+        for region_category, (rois, uuids) in self._uuids_roi_to_category(self.uuids).iteritems():
+            if region_category not in regions_to_string:
+                regions_to_string[region_category] = '# Activity Report \n'
+                regions_to_string[region_category] += ' * **Regions:** %s \n' % str(rois)
+                regions_to_string[region_category] += ' * **Area:** %s \n' % region_category
+                regions_to_string[region_category] += ' * **Start time:** %s \n' % str(start_time)
+                regions_to_string[region_category] += ' * **End time:** %s \n' % str(end_time)
+                regions_to_string[region_category] += ' * **Summary:** %d person(s) were detected \n' % len(uuids)
+                regions_to_string[region_category] += ' * **Details:** \n\n'
+                regions_to_string_img[region_category] = copy.copy(regions_to_string[region_category])
+            for roi in rois:
+                for ind, uuid in enumerate(self.uuids[roi]):
+                    try:
+                        detected_time = self.detected_time[uuid]
+                    except:
+                        detected_time = start_time
+                    detected_time = datetime.datetime.fromtimestamp(detected_time.secs)
+                    regions_to_string[region_category] += '%s was detected at %s \n\n' % (uuid, detected_time)
+                    regions_to_string_img[region_category] += "![%s](ObjectID(%s)) " % (
+                        uuid, self.image_ids[roi][ind]
+                    )
+                    regions_to_string_img[region_category] += 'was detected at %s \n\n' % str(detected_time)
+
+        entries = list()
+        for region_category, string_body in regions_to_string.iteritems():
+            entries.append(RobblogEntry(
+                title="%s Activity Report - %s" % (start_time.date(), region_category),
+                body=string_body
+            ))
+
+        entry_images = list()
+        for region_category, string_body in regions_to_string_img.iteritems():
+            entry_images.append(RobblogEntry(
+                title="%s Activity Report - %s" % (start_time.date(), region_category),
+                body=string_body
+            ))
+        return entries, entry_images
+
     def _store(self, start_time, end_time):
         rospy.loginfo("Storing location and the number of detected persons...")
         start_time = datetime.datetime.fromtimestamp(start_time.secs)
         end_time = datetime.datetime.fromtimestamp(end_time.secs)
-        string_body = ''
-        string_body_images = ''
-        for roi, uuids in self.uuids.iteritems():
-            string_body += "**Region %s**: %d person(s) were detected\n\n" % (
-                roi, len(uuids)
-            )
-            if len(uuids) > 0 and self.image_ids[roi][0] != "":
-                string_body_images += "**Region %s**: " % roi
-                for index, uuid in enumerate(uuids):
-                    if self.image_ids[roi][index] != "":
-                        string_body_images += "![%s](ObjectID(%s)) " % (
-                            uuid, self.image_ids[roi][index]
-                        )
-                string_body_images += "\n\n"
-        entry = RobblogEntry(
-            title="Activity check from %s to %s" % (start_time, end_time),
-            body=string_body
-        )
-        entry_images = RobblogEntry(
-            title="Activity check from %s to %s" % (start_time, end_time),
-            body=string_body_images
-        )
-        self._db.insert(entry)
-        self._db_image.insert(entry_images)
+        entries, entry_images = self._create_robmsg(start_time, end_time)
+        for entry in entries:
+            self._db.insert(entry)
+        for entry in entry_images:
+            self._db_image.insert(entry)
 
     def continuous_check(self, duration):
         rospy.loginfo("Start looking for people...")
@@ -187,6 +273,8 @@ class PeopleCounter(object):
                             self.uuids[pose_inside_roi].append(
                                 self._tracker_uuids[ind]
                             )
+                            if self._tracker_uuids[ind] not in self.detected_time:
+                                self.detected_time[self._tracker_uuids[ind]] = end_time
                             self.people_poses.append(
                                 [i.position.x, i.position.y]
                             )

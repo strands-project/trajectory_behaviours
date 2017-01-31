@@ -18,6 +18,8 @@
   <build_depend>mongodb_store</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>vision_people_logging</build_depend>
+  <build_depend>soma_map_manager</build_depend>
+  <build_depend>soma_manager</build_depend>
   <run_depend>bayes_people_tracker</run_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>message_filters</run_depend>
@@ -27,4 +29,6 @@
   <run_depend>mongodb_store</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>vision_people_logging</run_depend>
+  <run_depend>soma_map_manager</run_depend>
+  <run_depend>soma_manager</run_depend>
 </package>
